@@ -1205,15 +1205,18 @@
       const saveD = (v) => ss("rt_d", v);
 
       /* ── Utils ── */
+      // All date math is done in UTC so it matches the server's view regardless
+      // of the user's local timezone. (Without the "Z", "2026-04-22T00:00:00"
+      // is parsed as local time, which for IST users skews results by a day.)
       const today = () => new Date().toISOString().split("T")[0];
       function addDays(s, n) {
-        const d = new Date(s + "T00:00:00");
-        d.setDate(d.getDate() + n);
+        const d = new Date(s + "T00:00:00Z");
+        d.setUTCDate(d.getUTCDate() + n);
         return d.toISOString().split("T")[0];
       }
       function daysDiff(a, b) {
         return Math.round(
-          (new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 86400000,
+          (new Date(b + "T00:00:00Z") - new Date(a + "T00:00:00Z")) / 86400000,
         );
       }
       const getRevIdx = (id) => (loadD()[id] || []).length;
@@ -1720,11 +1723,21 @@
           return { scheduled, completed };
         }
 
-        const totalDue = topics.filter((t) => {
-          const n = getNext(t);
-          return n && n <= td;
-        }).length;
-        const doneToday = topics.filter((t) => isTodayDone(t.id)).length;
+        // Today's roster = topics whose next revision (based on revisions done
+        // BEFORE today) is due on/before today. This is the stable set of
+        // "things you should revise today" — it doesn't shrink as you tick
+        // them off, so the ratio stays in [0, 100%].
+        const rosterToday = topics.filter((t) => {
+          const dones = loadD()[t.id] || [];
+          const iBeforeToday = dones.filter((d) => d < td).length;
+          const off = revOffsetDays(t, iBeforeToday);
+          if (off === null) return false;
+          return addDays(t.addedDate, off) <= td;
+        });
+        const rosterSize = rosterToday.length;
+        const doneFromRoster = rosterToday.filter((t) =>
+          isTodayDone(t.id),
+        ).length;
         const overall = getRevStats(topics);
 
         const progDefs = [
@@ -1736,8 +1749,8 @@
           },
           {
             label: "Today's Completion",
-            sub: `${doneToday} of ${totalDue} due today done`,
-            val: totalDue ? doneToday / totalDue : 0,
+            sub: `${doneFromRoster} of ${rosterSize} due today done`,
+            val: rosterSize ? doneFromRoster / rosterSize : 0,
             color: "#f59e0b",
           },
           ...subjects.map((s) => {
