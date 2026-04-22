@@ -1034,10 +1034,41 @@
           >
             Revision Schedule
           </div>
+          <input
+            type="text"
+            id="topicIntervalsInp"
+            placeholder="1, 3, 7, 14, 30, 90, 180, 365"
+            style="
+              width: 100%;
+              padding: 8px 10px;
+              border: 1.5px solid var(--border);
+              border-radius: var(--rsm);
+              background: var(--surface);
+              color: var(--text);
+              font-family: 'JetBrains Mono', monospace;
+              font-size: 12px;
+              margin-bottom: 8px;
+            "
+          />
           <div
             style="display: flex; gap: 5px; flex-wrap: wrap"
             id="schedPreview"
           ></div>
+          <label
+            style="
+              display: flex;
+              align-items: center;
+              gap: 8px;
+              margin-top: 10px;
+              font-size: 12px;
+              color: var(--text-muted);
+              cursor: pointer;
+              user-select: none;
+            "
+          >
+            <input type="checkbox" id="topicRecurringInp" style="margin: 0; cursor: pointer;" />
+            <span><strong style="color: var(--text)">Recurring</strong> — restart the schedule after the last interval</span>
+          </label>
         </div>
         <button class="btn-full" id="topicSubmitBtn" onclick="submitTopic()">+ Add Topic</button>
       </div>
@@ -1089,7 +1120,7 @@
       const INTERVALS = [1, 3, 7, 14, 30, 90, 180, 365];
 
       const PALETTE = [
-        { color: "#6366f1", bg: "#eef2ff", border: "#c7d2fe", text: "#4338ca" },
+        { color: "#f97316", bg: "#fff7ed", border: "#fed7aa", text: "#c2410c" },
         { color: "#f43f5e", bg: "#fff1f2", border: "#fecdd3", text: "#be123c" },
         { color: "#10b981", bg: "#ecfdf5", border: "#a7f3d0", text: "#047857" },
         { color: "#f59e0b", bg: "#fffbeb", border: "#fde68a", text: "#b45309" },
@@ -1172,11 +1203,25 @@
         );
       }
       const getRevIdx = (id) => (loadD()[id] || []).length;
+      // Per-topic intervals; falls back to the app-wide INTERVALS default when not set.
+      function topicIntervals(t) {
+        return Array.isArray(t.intervals) && t.intervals.length > 0
+          ? t.intervals
+          : INTERVALS;
+      }
+      // Day offset from addedDate for the i-th revision (global index across cycles
+      // when recurring). Cycle K's j-th rev = (K × lastInterval) + intervals[j].
+      function revOffsetDays(t, i) {
+        const ivs = topicIntervals(t);
+        const N = ivs.length;
+        if (!t.recurring) return i >= N ? null : ivs[i];
+        const cycle = Math.floor(i / N);
+        const idx = i % N;
+        return cycle * ivs[N - 1] + ivs[idx];
+      }
       const getNext = (t) => {
-        const i = getRevIdx(t.id);
-        return i >= INTERVALS.length
-          ? null
-          : addDays(t.addedDate, INTERVALS[i]);
+        const off = revOffsetDays(t, getRevIdx(t.id));
+        return off === null ? null : addDays(t.addedDate, off);
       };
       const isTodayDone = (id) => (loadD()[id] || []).includes(today());
       const getPal = (subj) => {
@@ -1310,6 +1355,38 @@
         openModal("topicModal");
       }
 
+      // Parse comma/space-separated text into an array of positive ints.
+      // Returns null if any token isn't a positive integer (0 not allowed).
+      function parseIntervalsInput(text) {
+        const tokens = String(text).split(/[\s,]+/).filter(Boolean);
+        if (tokens.length === 0) return null;
+        const out = [];
+        for (const tok of tokens) {
+          const n = Number(tok);
+          if (!Number.isInteger(n) || n <= 0) return null;
+          out.push(n);
+        }
+        return out;
+      }
+
+      function renderSchedPreview() {
+        const prev = document.getElementById("schedPreview");
+        const parsed = parseIntervalsInput(
+          document.getElementById("topicIntervalsInp").value,
+        );
+        const ivs = parsed || INTERVALS;
+        const bad = !parsed;
+        prev.innerHTML = "";
+        ivs.forEach((n) => {
+          const span = document.createElement("span");
+          span.style.cssText =
+            "font-family:'JetBrains Mono',monospace;font-size:10px;padding:3px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--border);color:" +
+            (bad ? "var(--danger)" : "var(--text-muted)");
+          span.textContent = `+${n}d`;
+          prev.appendChild(span);
+        });
+      }
+
       function renderTopicModal() {
         const subjects = loadS();
         const sel = document.getElementById("topicSubjSel");
@@ -1318,18 +1395,13 @@
               .map((s) => `<option value="${s.name}">${s.name}</option>`)
               .join("")
           : '<option value="">— add a subject first —</option>';
-        // Schedule preview chips
-        const prev = document.getElementById("schedPreview");
-        prev.innerHTML = INTERVALS.map(
-          (n) =>
-            `<span style="font-family:'JetBrains Mono',monospace;font-size:10px;padding:3px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--border);color:var(--text-muted)">+${n}d</span>`,
-        ).join("");
 
         const nameInp = document.getElementById("topicNameInp");
         const descInp = document.getElementById("topicDescInp");
+        const ivsInp = document.getElementById("topicIntervalsInp");
+        const recInp = document.getElementById("topicRecurringInp");
         const title = document.getElementById("topicModalTitle");
         const submit = document.getElementById("topicSubmitBtn");
-        const schedWrap = document.getElementById("schedPreviewWrap");
 
         const editing = editingTopicId
           ? loadT().find((t) => t.id === editingTopicId)
@@ -1340,17 +1412,20 @@
           sel.disabled = true;
           nameInp.value = editing.name;
           descInp.value = editing.description || "";
+          ivsInp.value = (topicIntervals(editing)).join(", ");
+          recInp.checked = editing.recurring === true;
           title.textContent = "Edit Topic";
           submit.textContent = "Save Changes";
-          schedWrap.style.display = "none";
         } else {
           sel.disabled = false;
           nameInp.value = "";
           descInp.value = "";
+          ivsInp.value = INTERVALS.join(", ");
+          recInp.checked = false;
           title.textContent = "Add New Topic";
           submit.textContent = "+ Add Topic";
-          schedWrap.style.display = "";
         }
+        renderSchedPreview();
       }
 
       function submitTopic() {
@@ -1358,7 +1433,12 @@
         const description = document
           .getElementById("topicDescInp")
           .value.trim();
+        const rawIntervals = document.getElementById("topicIntervalsInp").value;
+        const recurring = document.getElementById("topicRecurringInp").checked;
         if (!name) return toast("⚠️", "Enter a topic name");
+        const intervals = parseIntervalsInput(rawIntervals);
+        if (!intervals)
+          return toast("⚠️", "Intervals must be comma-separated positive integers");
 
         if (editingTopicId) {
           const topics = loadT();
@@ -1371,6 +1451,8 @@
           const id = topic.id;
           topic.name = name;
           topic.description = description;
+          topic.intervals = intervals;
+          topic.recurring = recurring;
           saveT(topics);
           closeModal("topicModal");
           editingTopicId = null;
@@ -1379,6 +1461,8 @@
           api("PATCH", "/api/topics?id=" + encodeURIComponent(id), {
             name,
             description,
+            intervals,
+            recurring,
           }).catch((e) => console.warn("edit topic failed:", e));
           return;
         }
@@ -1390,7 +1474,15 @@
           : Date.now().toString() + Math.random().toString(36).slice(2);
         const addedDate = today();
         const topics = loadT();
-        topics.push({ id, subject: subj, name, addedDate, description });
+        topics.push({
+          id,
+          subject: subj,
+          name,
+          addedDate,
+          description,
+          intervals,
+          recurring,
+        });
         saveT(topics);
         closeModal("topicModal");
         toast("🚀", `"${name}" added!`);
@@ -1401,6 +1493,8 @@
           name,
           addedDate,
           description,
+          intervals,
+          recurring,
         }).catch((e) => console.warn("add topic failed:", e));
       }
 
@@ -1459,11 +1553,16 @@
         const td = today();
         const next = getNext(t);
         const done = isTodayDone(t.id);
-        const mastered = next === null;
-        const isOver = !mastered && !done && next < td;
-        const isToday = !mastered && !done && next === td;
+        // Recurring topics never reach the "mastered" terminal state.
+        const mastered = next === null && !t.recurring;
+        const isOver = next !== null && !done && next < td;
+        const isToday = next !== null && !done && next === td;
         const p = getPal(t.subject);
         const doneRevs = getRevIdx(t.id);
+        const ivs = topicIntervals(t);
+        const N = ivs.length;
+        const cycle = t.recurring ? Math.floor(doneRevs / N) : 0;
+        const doneInCycle = t.recurring ? doneRevs % N : Math.min(doneRevs, N);
 
         const card = document.createElement("div");
         card.className =
@@ -1496,8 +1595,12 @@
             text: `⚠️ ${daysDiff(next, td)}d overdue`,
           });
         else if (isToday) chips.push({ cls: "warn", text: "🔥 Due today" });
-        else chips.push({ cls: "", text: `⏳ in ${daysDiff(td, next)}d` });
-        chips.push({ cls: "", text: `Rev ${doneRevs}/${INTERVALS.length}` });
+        else if (next !== null)
+          chips.push({ cls: "", text: `⏳ in ${daysDiff(td, next)}d` });
+        const revText = t.recurring
+          ? `↻ Rev ${doneInCycle}/${N} · cycle ${cycle + 1}`
+          : `Rev ${doneRevs}/${N}`;
+        chips.push({ cls: "", text: revText });
         chips.push({ cls: "", text: `📅 ${t.addedDate}` });
 
         chips.forEach((c) => {
@@ -1509,12 +1612,12 @@
 
         const dots = document.createElement("div");
         dots.className = "prog-dots";
-        INTERVALS.forEach((_, i) => {
+        ivs.forEach((d0, i) => {
           const d = document.createElement("div");
           d.className = "pdot";
-          d.title = `Day +${INTERVALS[i]}`;
-          if (i < doneRevs) d.classList.add("pdone");
-          else if (i === doneRevs && next && next <= td)
+          d.title = `Day +${d0}`;
+          if (i < doneInCycle) d.classList.add("pdone");
+          else if (i === doneInCycle && next && next <= td)
             d.classList.add("pnext");
           dots.appendChild(d);
         });
@@ -1578,23 +1681,27 @@
         strip.innerHTML = "";
 
         // Revision completion rate:
-        // For each topic, count how many revisions were SCHEDULED so far (intervals that have passed since addedDate)
-        // vs how many were actually completed.
+        // For each topic, count how many revisions were SCHEDULED so far (due date ≤ today)
+        // vs how many were actually completed. For recurring topics, walks all cycles whose
+        // due date has passed; for one-time, only the first N intervals.
         function getRevStats(tList) {
           let scheduled = 0,
             completed = 0;
           tList.forEach((t) => {
             const done = loadD()[t.id] || [];
-            INTERVALS.forEach((interval) => {
-              const due = addDays(t.addedDate, interval);
-              if (due <= td) {
-                scheduled++;
-                // A revision counts as completed if done on or after due date but before next interval
-                // We track by index: revision i is done if done.length > i
-                const idx = INTERVALS.indexOf(interval);
-                if (done.length > idx) completed++;
-              }
-            });
+            const ivs = topicIntervals(t);
+            const N = ivs.length;
+            // Hard cap to avoid runaway loops if addedDate is ancient and a user picked
+            // very small intervals — 10k revisions is already implausible.
+            const maxIter = t.recurring ? 10000 : N;
+            for (let i = 0; i < maxIter; i++) {
+              const off = revOffsetDays(t, i);
+              if (off === null) break;
+              const due = addDays(t.addedDate, off);
+              if (due > td) break;
+              scheduled++;
+              if (done.length > i) completed++;
+            }
           });
           return { scheduled, completed };
         }
@@ -1843,6 +1950,14 @@
         initTheme();
         document
           .getElementById("topicNameInp")
+          .addEventListener("keydown", (e) => {
+            if (e.key === "Enter") submitTopic();
+          });
+        document
+          .getElementById("topicIntervalsInp")
+          .addEventListener("input", renderSchedPreview);
+        document
+          .getElementById("topicIntervalsInp")
           .addEventListener("keydown", (e) => {
             if (e.key === "Enter") submitTopic();
           });
