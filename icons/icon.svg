@@ -1,13 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" fill="#f97316"/>
-  <text
-    x="256" y="256"
-    text-anchor="middle"
-    dominant-baseline="central"
-    font-family="-apple-system, BlinkMacSystemFont, 'Plus Jakarta Sans', 'Helvetica Neue', Arial, sans-serif"
-    font-size="340"
-    font-weight="800"
-    fill="#ffffff"
-    letter-spacing="-8"
-  >R</text>
+  <!-- Rounded-square background. Corner radius ≈ 22% of side length, matching
+       iOS squircle proportions. iOS will mask its own rounding on top, but the
+       match is close enough to look right; desktop / Android / favicon views
+       render the rounded tile directly. -->
+  <rect width="512" height="512" rx="112" ry="112" fill="#f97316"/>
+
+  <!-- Faint arc that ties the three dots together into a "growing interval" visual. -->
+  <path
+    d="M 130 340 Q 256 180 382 340"
+    stroke="#ffffff"
+    stroke-width="16"
+    fill="none"
+    stroke-linecap="round"
+    opacity="0.35"
+  />
+
+  <!-- Three progressively larger dots: short interval → long interval → longer.
+       Symbolises the widening gaps in a spaced-repetition schedule. -->
+  <circle cx="130" cy="340" r="32" fill="#ffffff"/>
+  <circle cx="256" cy="232" r="52" fill="#ffffff"/>
+  <circle cx="382" cy="340" r="76" fill="#ffffff"/>
 </svg>
