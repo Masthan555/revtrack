@@ -25,7 +25,7 @@
         --danger: #ef4444;
         --success: #10b981;
         --warning: #f59e0b;
-        --accent: #6366f1;
+        --accent: #f97316;
       }
       [data-theme="dark"] {
         --bg: #0f1117;
@@ -163,8 +163,8 @@
         color: #fff;
       }
       .btn-primary:hover {
-        background: #4f46e5;
-        box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+        background: #ea580c;
+        box-shadow: 0 4px 14px rgba(249, 115, 22, 0.35);
         transform: translateY(-1px);
       }
       .btn-outline {
@@ -173,9 +173,9 @@
         border: 1.5px solid var(--border);
       }
       .btn-outline:hover {
-        border-color: #c7d2fe;
+        border-color: #fed7aa;
         color: var(--accent);
-        background: #eef2ff;
+        background: #fff7ed;
       }
       .date-chip {
         font-family: "JetBrains Mono", monospace;
@@ -277,7 +277,7 @@
         border-color: var(--border) !important;
       }
       .subj-chip:not(.active):hover {
-        border-color: #c7d2fe !important;
+        border-color: #fed7aa !important;
         color: var(--text) !important;
       }
       .manage-subj-btn {
@@ -298,7 +298,7 @@
       .manage-subj-btn:hover {
         border-color: var(--accent);
         color: var(--accent);
-        background: #eef2ff;
+        background: #fff7ed;
       }
 
       /* ── Collapsible section ── */
@@ -557,7 +557,7 @@
       .btn-edit:hover {
         border-color: var(--accent);
         color: var(--accent);
-        background: #eef2ff;
+        background: #fff7ed;
       }
       [data-theme="dark"] .btn-edit { background: var(--surface2); }
       [data-theme="dark"] .btn-edit:hover { background: #1a1c2e; }
@@ -717,8 +717,8 @@
         margin-top: 4px;
       }
       .btn-full:hover {
-        background: #4f46e5;
-        box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+        background: #ea580c;
+        box-shadow: 0 4px 14px rgba(249, 115, 22, 0.3);
       }
 
       /* ── Color swatches ── */
@@ -898,7 +898,7 @@
   </head>
   <body>
     <!-- Auth screen (shown until session is verified) -->
-    <div class="auth-screen" id="authScreen">
+    <div class="auth-screen hidden" id="authScreen">
       <div class="auth-card">
         <div class="auth-logo">Rev<span>Track</span></div>
         <div class="auth-sub">Sign in to sync your revisions across devices</div>
@@ -1611,7 +1611,7 @@
             label: "Overall Revision Rate",
             sub: `${overall.completed} of ${overall.scheduled} scheduled revisions done`,
             val: overall.scheduled ? overall.completed / overall.scheduled : 0,
-            color: "#6366f1",
+            color: "#f97316",
           },
           {
             label: "Today's Completion",
@@ -1654,9 +1654,9 @@
           chip.className = "subj-chip" + (isActive ? " active" : "");
           if (isActive) {
             if (name === "ALL") {
-              chip.style.background = "#eef2ff";
-              chip.style.borderColor = "#c7d2fe";
-              chip.style.color = "#4338ca";
+              chip.style.background = "#fff7ed";
+              chip.style.borderColor = "#fed7aa";
+              chip.style.color = "#c2410c";
             } else {
               chip.style.background = pal.bg;
               chip.style.borderColor = pal.border;
@@ -1805,6 +1805,8 @@
           localStorage.removeItem("rt_s");
           localStorage.removeItem("rt_t");
           localStorage.removeItem("rt_d");
+          // Remember we're logged in so the next page load skips the auth-screen flash.
+          localStorage.setItem("rt_auth", "1");
           showApp();
           await pullFromServer();
           render();
@@ -1821,6 +1823,7 @@
         } catch (e) {
           console.warn("logout call failed:", e);
         }
+        localStorage.removeItem("rt_auth");
         localStorage.removeItem("rt_s");
         localStorage.removeItem("rt_t");
         localStorage.removeItem("rt_d");
@@ -1859,12 +1862,28 @@
             if (e.key === "Enter") document.getElementById("authPass").focus();
           });
 
-        if (await bootAuth()) {
+        // Synchronous decision from localStorage so there's no flash of the auth
+        // screen on refresh for already-logged-in users. bootAuth() then verifies
+        // and reconciles if the server disagrees.
+        const wasAuth = localStorage.getItem("rt_auth") === "1";
+        if (wasAuth) {
           showApp();
           render();
+        } else {
+          showAuthScreen();
+        }
+
+        if (await bootAuth()) {
+          localStorage.setItem("rt_auth", "1");
+          if (!wasAuth) showApp();
           await pullFromServer();
           render();
-        } else {
+        } else if (wasAuth) {
+          // Cookie expired (or server lost the session) — fall back to the auth screen.
+          localStorage.removeItem("rt_auth");
+          localStorage.removeItem("rt_s");
+          localStorage.removeItem("rt_t");
+          localStorage.removeItem("rt_d");
           showAuthScreen();
         }
       });

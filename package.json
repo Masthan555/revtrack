@@ -4,6 +4,7 @@
   "private": true,
   "description": "Spaced-repetition revision tracker with Neon Postgres sync",
   "dependencies": {
-    "@neondatabase/serverless": "^0.10.4"
+    "@neondatabase/serverless": "^0.10.4",
+    "jose": "^5.9.6"
   }
 }
