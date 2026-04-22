@@ -538,6 +538,60 @@
         color: var(--danger);
         background: #fff5f5;
       }
+      .btn-edit {
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        border: 1.5px solid var(--border);
+        background: #fff;
+        color: var(--text-light);
+        cursor: pointer;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+        flex-shrink: 0;
+        line-height: 1;
+      }
+      .btn-edit:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: #eef2ff;
+      }
+      [data-theme="dark"] .btn-edit { background: var(--surface2); }
+      [data-theme="dark"] .btn-edit:hover { background: #1a1c2e; }
+      .topic-desc {
+        margin-top: 8px;
+        font-size: 12px;
+        color: var(--text-muted);
+        line-height: 1.5;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .topic-desc a {
+        color: var(--accent);
+        text-decoration: none;
+        border-bottom: 1px dashed var(--accent);
+      }
+      .topic-desc a:hover { border-bottom-style: solid; }
+      #topicDescInp {
+        width: 100%;
+        padding: 9px 11px;
+        border: 1.5px solid var(--border);
+        border-radius: var(--rsm);
+        background: var(--surface2);
+        color: var(--text);
+        font-family: inherit;
+        font-size: 13px;
+        line-height: 1.5;
+        resize: vertical;
+      }
+      #topicDescInp:focus {
+        outline: none;
+        border-color: var(--accent);
+        background: var(--surface);
+      }
       .empty {
         text-align: center;
         padding: 28px 20px;
@@ -880,7 +934,7 @@
         >
           ⊕ Subject
         </button>
-        <button class="btn-icon btn-primary" onclick="openModal('topicModal')">
+        <button class="btn-icon btn-primary" onclick="openAddTopicModal()">
           + Add Topic
         </button>
         <button class="btn-logout" onclick="logout()" title="Log out">Logout</button>
@@ -930,11 +984,11 @@
       </div>
     </div>
 
-    <!-- ── Modal: Add Topic ── -->
+    <!-- ── Modal: Add / Edit Topic ── -->
     <div class="modal-backdrop" id="topicModal">
       <div class="modal">
         <div class="modal-header">
-          <span class="modal-title">Add New Topic</span>
+          <span class="modal-title" id="topicModalTitle">Add New Topic</span>
           <button class="modal-close" onclick="closeModal('topicModal')">
             ×
           </button>
@@ -951,7 +1005,16 @@
             placeholder="e.g. Binary Search, Singleton Pattern…"
           />
         </div>
+        <div class="field">
+          <label>Description (optional)</label>
+          <textarea
+            id="topicDescInp"
+            rows="3"
+            placeholder="Paste reference links or add notes…"
+          ></textarea>
+        </div>
         <div
+          id="schedPreviewWrap"
           style="
             background: var(--surface2);
             border-radius: var(--rsm);
@@ -976,7 +1039,7 @@
             id="schedPreview"
           ></div>
         </div>
-        <button class="btn-full" onclick="addTopic()">+ Add Topic</button>
+        <button class="btn-full" id="topicSubmitBtn" onclick="submitTopic()">+ Add Topic</button>
       </div>
     </div>
 
@@ -1234,6 +1297,19 @@
       }
 
       /* ── Topics ── */
+      // Set while the topic modal is open for editing; null means "Add Topic" mode.
+      let editingTopicId = null;
+
+      function openAddTopicModal() {
+        editingTopicId = null;
+        openModal("topicModal");
+      }
+
+      function editTopic(id) {
+        editingTopicId = id;
+        openModal("topicModal");
+      }
+
       function renderTopicModal() {
         const subjects = loadS();
         const sel = document.getElementById("topicSubjSel");
@@ -1248,21 +1324,74 @@
           (n) =>
             `<span style="font-family:'JetBrains Mono',monospace;font-size:10px;padding:3px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--border);color:var(--text-muted)">+${n}d</span>`,
         ).join("");
+
+        const nameInp = document.getElementById("topicNameInp");
+        const descInp = document.getElementById("topicDescInp");
+        const title = document.getElementById("topicModalTitle");
+        const submit = document.getElementById("topicSubmitBtn");
+        const schedWrap = document.getElementById("schedPreviewWrap");
+
+        const editing = editingTopicId
+          ? loadT().find((t) => t.id === editingTopicId)
+          : null;
+
+        if (editing) {
+          sel.value = editing.subject;
+          sel.disabled = true;
+          nameInp.value = editing.name;
+          descInp.value = editing.description || "";
+          title.textContent = "Edit Topic";
+          submit.textContent = "Save Changes";
+          schedWrap.style.display = "none";
+        } else {
+          sel.disabled = false;
+          nameInp.value = "";
+          descInp.value = "";
+          title.textContent = "Add New Topic";
+          submit.textContent = "+ Add Topic";
+          schedWrap.style.display = "";
+        }
       }
 
-      function addTopic() {
-        const subj = document.getElementById("topicSubjSel").value;
+      function submitTopic() {
         const name = document.getElementById("topicNameInp").value.trim();
+        const description = document
+          .getElementById("topicDescInp")
+          .value.trim();
         if (!name) return toast("⚠️", "Enter a topic name");
+
+        if (editingTopicId) {
+          const topics = loadT();
+          const topic = topics.find((t) => t.id === editingTopicId);
+          if (!topic) {
+            editingTopicId = null;
+            closeModal("topicModal");
+            return;
+          }
+          const id = topic.id;
+          topic.name = name;
+          topic.description = description;
+          saveT(topics);
+          closeModal("topicModal");
+          editingTopicId = null;
+          toast("✓", "Saved");
+          render();
+          api("PATCH", "/api/topics?id=" + encodeURIComponent(id), {
+            name,
+            description,
+          }).catch((e) => console.warn("edit topic failed:", e));
+          return;
+        }
+
+        const subj = document.getElementById("topicSubjSel").value;
         if (!subj) return toast("⚠️", "Add a subject first");
         const id = crypto.randomUUID
           ? crypto.randomUUID()
           : Date.now().toString() + Math.random().toString(36).slice(2);
         const addedDate = today();
         const topics = loadT();
-        topics.push({ id, subject: subj, name, addedDate });
+        topics.push({ id, subject: subj, name, addedDate, description });
         saveT(topics);
-        document.getElementById("topicNameInp").value = "";
         closeModal("topicModal");
         toast("🚀", `"${name}" added!`);
         render();
@@ -1271,7 +1400,33 @@
           subject: subj,
           name,
           addedDate,
+          description,
         }).catch((e) => console.warn("add topic failed:", e));
+      }
+
+      // Renders plain text into `el`, turning http(s) URLs into anchor elements.
+      // Uses text nodes + createElement — no innerHTML, so no XSS risk.
+      function renderLinkifiedText(el, text) {
+        const urlRe = /(https?:\/\/[^\s<>"')]+)/g;
+        let lastIdx = 0;
+        let m;
+        while ((m = urlRe.exec(text)) !== null) {
+          if (m.index > lastIdx) {
+            el.appendChild(
+              document.createTextNode(text.slice(lastIdx, m.index)),
+            );
+          }
+          const a = document.createElement("a");
+          a.href = m[0];
+          a.textContent = m[0];
+          a.target = "_blank";
+          a.rel = "noopener noreferrer";
+          el.appendChild(a);
+          lastIdx = m.index + m[0].length;
+        }
+        if (lastIdx < text.length) {
+          el.appendChild(document.createTextNode(text.slice(lastIdx)));
+        }
       }
 
       function markDone(id) {
@@ -1368,6 +1523,13 @@
         info.appendChild(meta);
         info.appendChild(dots);
 
+        if (t.description && t.description.trim()) {
+          const desc = document.createElement("div");
+          desc.className = "topic-desc";
+          renderLinkifiedText(desc, t.description);
+          info.appendChild(desc);
+        }
+
         const acts = document.createElement("div");
         acts.className = "card-acts";
         if (!mastered && next && next <= td) {
@@ -1377,9 +1539,16 @@
           if (!done) btn.onclick = () => markDone(t.id);
           acts.appendChild(btn);
         }
+        const edit = document.createElement("button");
+        edit.className = "btn-edit";
+        edit.textContent = "✎";
+        edit.title = "Edit";
+        edit.onclick = () => editTopic(t.id);
+        acts.appendChild(edit);
         const del = document.createElement("button");
         del.className = "btn-del";
         del.textContent = "×";
+        del.title = "Delete";
         del.onclick = () => deleteTopic(t.id);
         acts.appendChild(del);
 
@@ -1672,7 +1841,7 @@
         document
           .getElementById("topicNameInp")
           .addEventListener("keydown", (e) => {
-            if (e.key === "Enter") addTopic();
+            if (e.key === "Enter") submitTopic();
           });
         document
           .getElementById("newSubjInp")
