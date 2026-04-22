@@ -1,0 +1,1704 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RevTrack</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #f4f6fb;
+        --surface: #ffffff;
+        --surface2: #f0f2f8;
+        --border: #e4e7f0;
+        --text: #1a1d2e;
+        --text-muted: #6b7280;
+        --text-light: #9ca3af;
+        --shadow: 0 1px 4px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.04);
+        --shadow-lg:
+          0 8px 32px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+        --radius: 16px;
+        --rsm: 10px;
+        --danger: #ef4444;
+        --success: #10b981;
+        --warning: #f59e0b;
+        --accent: #6366f1;
+      }
+      [data-theme="dark"] {
+        --bg: #0f1117;
+        --surface: #1a1d27;
+        --surface2: #22263a;
+        --border: #2e3348;
+        --text: #e8eaf6;
+        --text-muted: #8b92b0;
+        --text-light: #555e80;
+        --shadow: 0 1px 4px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.2);
+        --shadow-lg:
+          0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+      }
+      [data-theme="dark"] .topic-card.c-overdue {
+        border-color: #7f1d1d;
+        background: #1f1215;
+      }
+      [data-theme="dark"] .topic-card.c-today {
+        border-color: #78350f;
+        background: #1c160a;
+      }
+      [data-theme="dark"] .topic-card.c-mastered {
+        border-color: #065f46;
+        background: #0a1f18;
+      }
+      [data-theme="dark"] .topic-card:hover {
+        border-color: #3d4568;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+      }
+      [data-theme="dark"] .btn-mark {
+        background: var(--surface2);
+        color: var(--text-muted);
+      }
+      [data-theme="dark"] .btn-mark:hover {
+        background: #0d2118;
+      }
+      [data-theme="dark"] .btn-del {
+        background: var(--surface2);
+        color: var(--text-light);
+      }
+      [data-theme="dark"] .btn-del:hover {
+        background: #2a1010;
+      }
+      [data-theme="dark"] .subj-manage-del {
+        background: var(--surface2);
+      }
+      [data-theme="dark"] .subj-manage-del:hover {
+        background: #2a1010;
+      }
+      [data-theme="dark"] .modal-close:hover {
+        background: #2a1010;
+      }
+      [data-theme="dark"] .field select:focus,
+      [data-theme="dark"] .field input[type="text"]:focus {
+        background: var(--surface);
+      }
+      [data-theme="dark"] .pdot {
+        border-color: #3d4568;
+        background: var(--surface2);
+      }
+      .theme-toggle {
+        width: 34px;
+        height: 34px;
+        border-radius: 8px;
+        border: 1.5px solid var(--border);
+        background: var(--surface2);
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        transition: all 0.2s;
+        flex-shrink: 0;
+      }
+      .theme-toggle:hover {
+        border-color: var(--accent);
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        transition:
+          background 0.25s,
+          color 0.25s;
+      }
+
+      /* ── Topbar ── */
+      .topbar {
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        padding: 0 28px;
+        height: 58px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        box-shadow: 0 1px 6px rgba(0, 0, 0, 0.05);
+      }
+      .logo {
+        font-size: 18px;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+      }
+      .logo span {
+        color: var(--accent);
+      }
+      .topbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .btn-icon {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        padding: 7px 16px;
+        border-radius: 8px;
+        border: none;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-size: 13px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: #fff;
+      }
+      .btn-primary:hover {
+        background: #4f46e5;
+        box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);
+        transform: translateY(-1px);
+      }
+      .btn-outline {
+        background: var(--surface);
+        color: var(--text-muted);
+        border: 1.5px solid var(--border);
+      }
+      .btn-outline:hover {
+        border-color: #c7d2fe;
+        color: var(--accent);
+        background: #eef2ff;
+      }
+      .date-chip {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--text-muted);
+        background: var(--surface2);
+        padding: 5px 12px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+      }
+
+      /* ── App shell ── */
+      .app {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 28px 20px 80px;
+      }
+
+      /* ── Progress bar strip ── */
+      .progress-strip {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 20px 24px;
+        margin-bottom: 20px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 16px 24px;
+      }
+      .prog-item {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .prog-label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        display: flex;
+        justify-content: space-between;
+      }
+      .prog-label span {
+        font-variant-numeric: tabular-nums;
+        color: var(--text);
+      }
+      .prog-bar {
+        height: 6px;
+        background: var(--surface2);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .prog-fill {
+        height: 100%;
+        border-radius: 10px;
+        transition: width 0.4s ease;
+      }
+
+      /* ── Subject filter chips ── */
+      .subj-filter-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+        align-items: center;
+      }
+      .subj-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 6px 13px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 700;
+        border: 1.5px solid transparent;
+        cursor: pointer;
+        transition: all 0.15s;
+        user-select: none;
+      }
+      .subj-chip .chip-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .subj-chip .chip-cnt {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        opacity: 0.65;
+      }
+      .subj-chip.active {
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+      .subj-chip:not(.active) {
+        background: var(--surface) !important;
+        color: var(--text-muted) !important;
+        border-color: var(--border) !important;
+      }
+      .subj-chip:not(.active):hover {
+        border-color: #c7d2fe !important;
+        color: var(--text) !important;
+      }
+      .manage-subj-btn {
+        font-size: 12px;
+        font-weight: 700;
+        padding: 6px 12px;
+        border-radius: 20px;
+        border: 1.5px dashed var(--border);
+        background: transparent;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.15s;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .manage-subj-btn:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: #eef2ff;
+      }
+
+      /* ── Collapsible section ── */
+      .section-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        margin-bottom: 16px;
+        overflow: hidden;
+      }
+      .section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.15s;
+      }
+      .section-header:hover {
+        background: var(--surface2);
+      }
+      .section-header-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .section-title {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+      }
+      .live-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--warning);
+        box-shadow: 0 0 5px var(--warning);
+        animation: blink 2s ease-in-out infinite;
+      }
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+      .cnt-pill {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 2px 8px;
+        color: var(--text-muted);
+      }
+      .chevron {
+        font-size: 12px;
+        color: var(--text-light);
+        transition: transform 0.25s;
+      }
+      .chevron.open {
+        transform: rotate(180deg);
+      }
+      .section-body {
+        transition: all 0.25s ease;
+        overflow: hidden;
+      }
+      .section-body.collapsed {
+        display: none;
+      }
+      .topics-list {
+        padding: 4px 16px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }
+
+      /* ── Topic card ── */
+      .topic-card {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        align-items: center;
+        gap: 11px;
+        padding: 12px 13px;
+        border-radius: 10px;
+        border: 1.5px solid var(--border);
+        background: var(--surface);
+        transition: all 0.15s;
+        animation: fi 0.2s ease-out;
+      }
+      @keyframes fi {
+        from {
+          opacity: 0;
+          transform: translateY(-4px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .topic-card:hover {
+        border-color: #d0d5e8;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      }
+      .topic-card.c-overdue {
+        border-color: #fca5a5;
+        background: #fff8f8;
+      }
+      .topic-card.c-today {
+        border-color: #fcd34d;
+        background: #fffdf0;
+      }
+      .topic-card.c-done {
+        opacity: 0.5;
+      }
+      .topic-card.c-mastered {
+        border-color: #6ee7b7;
+        background: #f0fdf9;
+      }
+      .sbadge {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        font-weight: 500;
+        padding: 3px 8px;
+        border-radius: 5px;
+        white-space: nowrap;
+      }
+      .t-info {
+        min-width: 0;
+      }
+      .t-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-bottom: 3px;
+      }
+      .t-meta {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .mchip {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        color: var(--text-light);
+      }
+      .mchip.warn {
+        color: var(--warning);
+        font-weight: 600;
+      }
+      .mchip.danger {
+        color: var(--danger);
+        font-weight: 600;
+      }
+      .mchip.good {
+        color: var(--success);
+        font-weight: 600;
+      }
+      .prog-dots {
+        display: flex;
+        gap: 4px;
+        margin-top: 5px;
+      }
+      .pdot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        border: 1.5px solid #d1d5db;
+        background: #f9fafb;
+        flex-shrink: 0;
+      }
+      .pdot.pdone {
+        background: var(--success);
+        border-color: var(--success);
+      }
+      .pdot.pnext {
+        background: var(--warning);
+        border-color: var(--warning);
+        box-shadow: 0 0 5px rgba(245, 158, 11, 0.5);
+      }
+      .card-acts {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        flex-shrink: 0;
+      }
+      .btn-mark {
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-size: 11px;
+        font-weight: 700;
+        padding: 5px 10px;
+        border-radius: 6px;
+        border: 1.5px solid var(--border);
+        background: #fff;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.15s;
+        white-space: nowrap;
+      }
+      .btn-mark:hover {
+        border-color: var(--success);
+        color: var(--success);
+        background: #f0fdf4;
+      }
+      .btn-mark.done {
+        border-color: var(--success);
+        color: var(--success);
+        background: #f0fdf4;
+        cursor: default;
+      }
+      .btn-del {
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        border: 1.5px solid var(--border);
+        background: #fff;
+        color: var(--text-light);
+        cursor: pointer;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+        flex-shrink: 0;
+        line-height: 1;
+      }
+      .btn-del:hover {
+        border-color: var(--danger);
+        color: var(--danger);
+        background: #fff5f5;
+      }
+      .empty {
+        text-align: center;
+        padding: 28px 20px;
+        color: var(--text-muted);
+      }
+      .empty .eicon {
+        font-size: 28px;
+        margin-bottom: 8px;
+      }
+      .empty p {
+        font-size: 13px;
+      }
+
+      /* ── Modal backdrop ── */
+      .modal-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 15, 30, 0.45);
+        backdrop-filter: blur(4px);
+        z-index: 200;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+      }
+      .modal-backdrop.open {
+        opacity: 1;
+        pointer-events: all;
+      }
+      .modal {
+        background: var(--surface);
+        border-radius: 20px;
+        box-shadow: var(--shadow-lg);
+        width: 100%;
+        max-width: 420px;
+        padding: 28px;
+        transform: translateY(16px) scale(0.97);
+        transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+      .modal-backdrop.open .modal {
+        transform: translateY(0) scale(1);
+      }
+      .modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 22px;
+      }
+      .modal-title {
+        font-size: 17px;
+        font-weight: 800;
+        letter-spacing: -0.3px;
+      }
+      .modal-close {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        border: 1.5px solid var(--border);
+        background: var(--surface2);
+        color: var(--text-muted);
+        cursor: pointer;
+        font-size: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+      }
+      .modal-close:hover {
+        border-color: var(--danger);
+        color: var(--danger);
+        background: #fff5f5;
+      }
+
+      /* ── Form fields ── */
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        margin-bottom: 14px;
+      }
+      .field label {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        color: var(--text-muted);
+      }
+      .field select,
+      .field input[type="text"] {
+        border: 1.5px solid var(--border);
+        border-radius: var(--rsm);
+        padding: 10px 13px;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-size: 14px;
+        color: var(--text);
+        background: var(--surface2);
+        outline: none;
+        transition:
+          border-color 0.15s,
+          background 0.15s;
+        width: 100%;
+      }
+      .field select:focus,
+      .field input[type="text"]:focus {
+        border-color: var(--accent);
+        background: #fff;
+      }
+      .btn-full {
+        width: 100%;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: var(--rsm);
+        padding: 11px;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-size: 14px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s;
+        margin-top: 4px;
+      }
+      .btn-full:hover {
+        background: #4f46e5;
+        box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);
+      }
+
+      /* ── Color swatches ── */
+      .swatch-grid {
+        display: flex;
+        gap: 7px;
+        flex-wrap: wrap;
+        margin-top: 4px;
+      }
+      .swatch {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        cursor: pointer;
+        border: 2.5px solid transparent;
+        transition:
+          transform 0.15s,
+          border-color 0.15s;
+      }
+      .swatch:hover {
+        transform: scale(1.18);
+      }
+      .swatch.selected {
+        border-color: var(--text);
+        transform: scale(1.1);
+      }
+
+      /* ── Manage subjects modal ── */
+      .subj-manage-list {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        margin-bottom: 16px;
+        max-height: 220px;
+        overflow-y: auto;
+      }
+      .subj-manage-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 9px 13px;
+        border-radius: 9px;
+        border: 1.5px solid var(--border);
+        background: var(--surface2);
+      }
+      .subj-manage-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        flex-shrink: 0;
+      }
+      .subj-manage-name {
+        flex: 1;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      .subj-manage-cnt {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--text-muted);
+      }
+      .subj-manage-del {
+        width: 24px;
+        height: 24px;
+        border-radius: 6px;
+        border: 1.5px solid var(--border);
+        background: #fff;
+        color: var(--text-light);
+        cursor: pointer;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+      }
+      .subj-manage-del:hover {
+        border-color: var(--danger);
+        color: var(--danger);
+        background: #fff5f5;
+      }
+      .divider {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 16px 0;
+      }
+
+      /* ── Toast ── */
+      .toast {
+        position: fixed;
+        bottom: 24px;
+        right: 20px;
+        background: #1a1d2e;
+        color: #fff;
+        border-radius: 10px;
+        padding: 11px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        z-index: 9999;
+        transform: translateY(70px);
+        opacity: 0;
+        transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        pointer-events: none;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+      }
+      .toast.show {
+        transform: translateY(0);
+        opacity: 1;
+      }
+
+      /* ── Auth screen ── */
+      .hidden { display: none !important; }
+      .auth-screen {
+        position: fixed; inset: 0; z-index: 100;
+        background: var(--bg);
+        display: flex; align-items: center; justify-content: center;
+        padding: 20px;
+      }
+      .auth-card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow-lg);
+        padding: 32px 28px;
+        width: 100%; max-width: 380px;
+      }
+      .auth-logo {
+        font-size: 22px; font-weight: 800; letter-spacing: -0.5px;
+        text-align: center; margin-bottom: 4px;
+      }
+      .auth-logo span { color: var(--accent); }
+      .auth-sub {
+        font-size: 12px; color: var(--text-muted);
+        text-align: center; margin-bottom: 22px;
+      }
+      .auth-tabs {
+        display: flex; gap: 4px; background: var(--surface2);
+        border-radius: 10px; padding: 4px; margin-bottom: 18px;
+      }
+      .auth-tab {
+        flex: 1; padding: 8px; border: none; background: transparent;
+        font-family: inherit; font-size: 13px; font-weight: 700;
+        color: var(--text-muted); border-radius: 7px; cursor: pointer;
+        transition: all 0.15s;
+      }
+      .auth-tab.active { background: var(--surface); color: var(--text); box-shadow: var(--shadow); }
+      .auth-form input {
+        width: 100%; padding: 10px 12px; margin-bottom: 10px;
+        border: 1.5px solid var(--border); border-radius: var(--rsm);
+        background: var(--surface2); color: var(--text);
+        font-family: inherit; font-size: 14px;
+      }
+      .auth-form input:focus {
+        outline: none; border-color: var(--accent); background: var(--surface);
+      }
+      .auth-submit {
+        width: 100%; padding: 11px; margin-top: 6px;
+        border: none; border-radius: var(--rsm); cursor: pointer;
+        font-family: inherit; font-size: 14px; font-weight: 700;
+      }
+      .auth-err {
+        font-size: 12px; color: var(--danger);
+        margin-top: 10px; min-height: 16px; text-align: center;
+      }
+      .btn-logout {
+        background: var(--surface);
+        color: var(--text-muted);
+        border: 1.5px solid var(--border);
+        padding: 6px 12px; border-radius: 8px;
+        font-family: inherit; font-size: 12px; font-weight: 700;
+        cursor: pointer; transition: all 0.15s;
+      }
+      .btn-logout:hover { border-color: var(--danger); color: var(--danger); }
+    </style>
+  </head>
+  <body>
+    <!-- Auth screen (shown until session is verified) -->
+    <div class="auth-screen" id="authScreen">
+      <div class="auth-card">
+        <div class="auth-logo">Rev<span>Track</span></div>
+        <div class="auth-sub">Sign in to sync your revisions across devices</div>
+        <div class="auth-tabs">
+          <button class="auth-tab active" id="authTabLogin" onclick="switchAuthTab('login')">Log in</button>
+          <button class="auth-tab" id="authTabRegister" onclick="switchAuthTab('register')">Sign up</button>
+        </div>
+        <div class="auth-form">
+          <input type="text" id="authUser" placeholder="Username" autocomplete="username" autocapitalize="none" />
+          <input type="password" id="authPass" placeholder="Password" autocomplete="current-password" />
+          <button class="btn-primary auth-submit" id="authSubmit" onclick="authSubmit()">Log in</button>
+          <div class="auth-err" id="authErr"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Topbar -->
+    <div class="topbar hidden" id="topbar">
+      <div class="logo">Rev<span>Track</span></div>
+      <div class="topbar-actions">
+        <div class="date-chip" id="dateChip"></div>
+        <button
+          class="theme-toggle"
+          id="themeToggle"
+          onclick="toggleTheme()"
+          title="Toggle dark/light mode"
+        >
+          🌙
+        </button>
+        <button
+          class="btn-icon btn-outline"
+          onclick="openModal('subjectModal')"
+        >
+          ⊕ Subject
+        </button>
+        <button class="btn-icon btn-primary" onclick="openModal('topicModal')">
+          + Add Topic
+        </button>
+        <button class="btn-logout" onclick="logout()" title="Log out">Logout</button>
+      </div>
+    </div>
+
+    <div class="app hidden" id="appMain">
+      <!-- Progress strip -->
+      <div class="progress-strip" id="progressStrip"></div>
+
+      <!-- Subject filter chips -->
+      <div class="subj-filter-row" id="subjFilterRow"></div>
+
+      <!-- Due Today section -->
+      <div class="section-card">
+        <div
+          class="section-header"
+          onclick="toggleSection('todaySection', 'todayChevron')"
+        >
+          <div class="section-header-left">
+            <span class="live-dot"></span>
+            <span class="section-title">Due Today</span>
+            <span class="cnt-pill" id="todayCnt">0</span>
+          </div>
+          <span class="chevron open" id="todayChevron">▼</span>
+        </div>
+        <div class="section-body" id="todaySection">
+          <div class="topics-list" id="todayList"></div>
+        </div>
+      </div>
+
+      <!-- All Topics section -->
+      <div class="section-card">
+        <div
+          class="section-header"
+          onclick="toggleSection('allSection', 'allChevron')"
+        >
+          <div class="section-header-left">
+            <span class="section-title">All Topics</span>
+            <span class="cnt-pill" id="allCnt">0</span>
+          </div>
+          <span class="chevron open" id="allChevron">▼</span>
+        </div>
+        <div class="section-body" id="allSection">
+          <div class="topics-list" id="allList"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Modal: Add Topic ── -->
+    <div class="modal-backdrop" id="topicModal">
+      <div class="modal">
+        <div class="modal-header">
+          <span class="modal-title">Add New Topic</span>
+          <button class="modal-close" onclick="closeModal('topicModal')">
+            ×
+          </button>
+        </div>
+        <div class="field">
+          <label>Subject</label>
+          <select id="topicSubjSel"></select>
+        </div>
+        <div class="field">
+          <label>Topic Name</label>
+          <input
+            type="text"
+            id="topicNameInp"
+            placeholder="e.g. Binary Search, Singleton Pattern…"
+          />
+        </div>
+        <div
+          style="
+            background: var(--surface2);
+            border-radius: var(--rsm);
+            padding: 12px 14px;
+            margin-bottom: 14px;
+          "
+        >
+          <div
+            style="
+              font-size: 11px;
+              font-weight: 700;
+              letter-spacing: 0.8px;
+              text-transform: uppercase;
+              color: var(--text-muted);
+              margin-bottom: 8px;
+            "
+          >
+            Revision Schedule
+          </div>
+          <div
+            style="display: flex; gap: 5px; flex-wrap: wrap"
+            id="schedPreview"
+          ></div>
+        </div>
+        <button class="btn-full" onclick="addTopic()">+ Add Topic</button>
+      </div>
+    </div>
+
+    <!-- ── Modal: Manage Subjects ── -->
+    <div class="modal-backdrop" id="subjectModal">
+      <div class="modal">
+        <div class="modal-header">
+          <span class="modal-title">Manage Subjects</span>
+          <button class="modal-close" onclick="closeModal('subjectModal')">
+            ×
+          </button>
+        </div>
+        <div class="subj-manage-list" id="subjManageList"></div>
+        <div class="divider"></div>
+        <div
+          style="
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 12px;
+          "
+        >
+          Add New Subject
+        </div>
+        <div class="field">
+          <label>Pick a colour</label>
+          <div class="swatch-grid" id="swatchGrid"></div>
+        </div>
+        <div class="field">
+          <label>Subject Name</label>
+          <input
+            type="text"
+            id="newSubjInp"
+            placeholder="e.g. OS, DBMS, CN…"
+            maxlength="12"
+          />
+        </div>
+        <button class="btn-full" onclick="addSubject()">Add Subject</button>
+      </div>
+    </div>
+
+    <div class="toast" id="toast">
+      <span id="tIcon"></span><span id="tMsg"></span>
+    </div>
+
+    <script>
+      const INTERVALS = [1, 3, 7, 14, 30, 90, 180, 365];
+
+      const PALETTE = [
+        { color: "#6366f1", bg: "#eef2ff", border: "#c7d2fe", text: "#4338ca" },
+        { color: "#f43f5e", bg: "#fff1f2", border: "#fecdd3", text: "#be123c" },
+        { color: "#10b981", bg: "#ecfdf5", border: "#a7f3d0", text: "#047857" },
+        { color: "#f59e0b", bg: "#fffbeb", border: "#fde68a", text: "#b45309" },
+        { color: "#3b82f6", bg: "#eff6ff", border: "#bfdbfe", text: "#1d4ed8" },
+        { color: "#8b5cf6", bg: "#f5f3ff", border: "#ddd6fe", text: "#6d28d9" },
+        { color: "#06b6d4", bg: "#ecfeff", border: "#a5f3fc", text: "#0e7490" },
+        { color: "#ec4899", bg: "#fdf2f8", border: "#fbcfe8", text: "#be185d" },
+        { color: "#84cc16", bg: "#f7fee7", border: "#d9f99d", text: "#4d7c0f" },
+        { color: "#64748b", bg: "#f8fafc", border: "#e2e8f0", text: "#475569" },
+      ];
+
+      const DEF_SUBJECTS = [
+        { name: "DSA", pi: 0 },
+        { name: "LLD", pi: 2 },
+        { name: "HLD", pi: 5 },
+      ];
+
+      /* ── Storage: localStorage is the synchronous render cache;
+         server (Neon) is source of truth. Mutations update cache
+         immediately, then fire a fine-grained API call.
+         Auth: session cookie (HttpOnly) is auto-sent by the browser. ── */
+      const ls = (k, d) => {
+        try {
+          return JSON.parse(localStorage.getItem(k)) ?? d;
+        } catch (e) {
+          return d;
+        }
+      };
+      const ss = (k, v) => localStorage.setItem(k, JSON.stringify(v));
+
+      async function api(method, path, body) {
+        const r = await fetch(path, {
+          method,
+          credentials: "same-origin",
+          headers: body ? { "Content-Type": "application/json" } : {},
+          body: body ? JSON.stringify(body) : undefined,
+        });
+        if (!r.ok) {
+          let msg = "";
+          try {
+            const j = await r.json();
+            msg = j.error || "";
+          } catch {}
+          const err = new Error(msg || `${method} ${path} failed`);
+          err.status = r.status;
+          throw err;
+        }
+        const ct = r.headers.get("content-type") || "";
+        return ct.includes("application/json") ? r.json() : null;
+      }
+
+      async function pullFromServer() {
+        try {
+          const data = await api("GET", "/api/state");
+          ss("rt_s", data.rt_s || []);
+          ss("rt_t", data.rt_t || []);
+          ss("rt_d", data.rt_d || {});
+        } catch (e) {
+          console.warn("initial sync failed, using cached data:", e);
+        }
+      }
+
+      const loadS = () => ls("rt_s", DEF_SUBJECTS);
+      const saveS = (v) => ss("rt_s", v);
+      const loadT = () => ls("rt_t", []);
+      const saveT = (v) => ss("rt_t", v);
+      const loadD = () => ls("rt_d", {});
+      const saveD = (v) => ss("rt_d", v);
+
+      /* ── Utils ── */
+      const today = () => new Date().toISOString().split("T")[0];
+      function addDays(s, n) {
+        const d = new Date(s + "T00:00:00");
+        d.setDate(d.getDate() + n);
+        return d.toISOString().split("T")[0];
+      }
+      function daysDiff(a, b) {
+        return Math.round(
+          (new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 86400000,
+        );
+      }
+      const getRevIdx = (id) => (loadD()[id] || []).length;
+      const getNext = (t) => {
+        const i = getRevIdx(t.id);
+        return i >= INTERVALS.length
+          ? null
+          : addDays(t.addedDate, INTERVALS[i]);
+      };
+      const isTodayDone = (id) => (loadD()[id] || []).includes(today());
+      const getPal = (subj) => {
+        const s = loadS().find((x) => x.name === subj);
+        return s ? PALETTE[s.pi] || PALETTE[9] : PALETTE[9];
+      };
+
+      /* ── State ── */
+      let selPal = 0;
+      let activeFilter = "ALL";
+
+      /* ── Modal ── */
+      function openModal(id) {
+        if (id === "subjectModal") renderSubjectModal();
+        if (id === "topicModal") renderTopicModal();
+        document.getElementById(id).classList.add("open");
+      }
+      function closeModal(id) {
+        document.getElementById(id).classList.remove("open");
+      }
+      document.querySelectorAll(".modal-backdrop").forEach((el) => {
+        el.addEventListener("click", (e) => {
+          if (e.target === el) el.classList.remove("open");
+        });
+      });
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape")
+          document
+            .querySelectorAll(".modal-backdrop.open")
+            .forEach((el) => el.classList.remove("open"));
+      });
+
+      /* ── Section toggle ── */
+      function toggleSection(bodyId, chevronId) {
+        const body = document.getElementById(bodyId);
+        const chev = document.getElementById(chevronId);
+        const collapsed = body.classList.toggle("collapsed");
+        chev.classList.toggle("open", !collapsed);
+      }
+
+      /* ── Subjects ── */
+      function renderSubjectModal() {
+        const subjects = loadS();
+        const topics = loadT();
+        // List
+        const list = document.getElementById("subjManageList");
+        list.innerHTML = subjects.length
+          ? ""
+          : '<div style="font-size:13px;color:var(--text-muted);text-align:center;padding:12px 0">No subjects yet</div>';
+        subjects.forEach((s) => {
+          const p = PALETTE[s.pi];
+          const cnt = topics.filter((t) => t.subject === s.name).length;
+          const el = document.createElement("div");
+          el.className = "subj-manage-item";
+          el.innerHTML = `
+      <div class="subj-manage-dot" style="background:${p.color}"></div>
+      <div class="subj-manage-name">${s.name}</div>
+      <div class="subj-manage-cnt">${cnt} topic${cnt !== 1 ? "s" : ""}</div>
+      <button class="subj-manage-del" onclick="deleteSubject('${s.name}')">×</button>
+    `;
+          list.appendChild(el);
+        });
+        // Swatches
+        renderSwatches();
+      }
+
+      function renderSwatches() {
+        const g = document.getElementById("swatchGrid");
+        g.innerHTML = "";
+        PALETTE.forEach((p, i) => {
+          const sw = document.createElement("div");
+          sw.className = "swatch" + (i === selPal ? " selected" : "");
+          sw.style.background = p.color;
+          sw.onclick = () => {
+            selPal = i;
+            renderSwatches();
+          };
+          g.appendChild(sw);
+        });
+      }
+
+      function addSubject() {
+        const inp = document.getElementById("newSubjInp");
+        const name = inp.value.trim().toUpperCase();
+        if (!name) return toast("⚠️", "Enter a name");
+        const subs = loadS();
+        if (subs.find((s) => s.name === name))
+          return toast("⚠️", "Already exists");
+        const pi = selPal;
+        subs.push({ name, pi });
+        saveS(subs);
+        inp.value = "";
+        toast("✓", `"${name}" added`);
+        renderSubjectModal();
+        render();
+        api("POST", "/api/subjects", { name, pi }).catch((e) =>
+          console.warn("add subject failed:", e),
+        );
+      }
+
+      function deleteSubject(name) {
+        const topics = loadT();
+        const n = topics.filter((t) => t.subject === name).length;
+        if (
+          n > 0 &&
+          !confirm(`Delete "${name}"? This removes ${n} topic(s) too.`)
+        )
+          return;
+        saveS(loadS().filter((s) => s.name !== name));
+        saveT(topics.filter((t) => t.subject !== name));
+        toast("🗑️", `"${name}" removed`);
+        renderSubjectModal();
+        render();
+        api(
+          "DELETE",
+          "/api/subjects?name=" + encodeURIComponent(name),
+        ).catch((e) => console.warn("delete subject failed:", e));
+      }
+
+      /* ── Topics ── */
+      function renderTopicModal() {
+        const subjects = loadS();
+        const sel = document.getElementById("topicSubjSel");
+        sel.innerHTML = subjects.length
+          ? subjects
+              .map((s) => `<option value="${s.name}">${s.name}</option>`)
+              .join("")
+          : '<option value="">— add a subject first —</option>';
+        // Schedule preview chips
+        const prev = document.getElementById("schedPreview");
+        prev.innerHTML = INTERVALS.map(
+          (n) =>
+            `<span style="font-family:'JetBrains Mono',monospace;font-size:10px;padding:3px 8px;border-radius:4px;background:var(--surface);border:1px solid var(--border);color:var(--text-muted)">+${n}d</span>`,
+        ).join("");
+      }
+
+      function addTopic() {
+        const subj = document.getElementById("topicSubjSel").value;
+        const name = document.getElementById("topicNameInp").value.trim();
+        if (!name) return toast("⚠️", "Enter a topic name");
+        if (!subj) return toast("⚠️", "Add a subject first");
+        const id = crypto.randomUUID
+          ? crypto.randomUUID()
+          : Date.now().toString() + Math.random().toString(36).slice(2);
+        const addedDate = today();
+        const topics = loadT();
+        topics.push({ id, subject: subj, name, addedDate });
+        saveT(topics);
+        document.getElementById("topicNameInp").value = "";
+        closeModal("topicModal");
+        toast("🚀", `"${name}" added!`);
+        render();
+        api("POST", "/api/topics", {
+          id,
+          subject: subj,
+          name,
+          addedDate,
+        }).catch((e) => console.warn("add topic failed:", e));
+      }
+
+      function markDone(id) {
+        const done = loadD();
+        if (!done[id]) done[id] = [];
+        const t = today();
+        if (!done[id].includes(t)) done[id].push(t);
+        saveD(done);
+        toast("✓", "Revision complete!");
+        render();
+        api("POST", "/api/revisions", { topicId: id, doneDate: t }).catch(
+          (e) => console.warn("mark done failed:", e),
+        );
+      }
+
+      function deleteTopic(id) {
+        saveT(loadT().filter((t) => t.id !== id));
+        const done = loadD();
+        delete done[id];
+        saveD(done);
+        toast("🗑️", "Removed");
+        render();
+        api("DELETE", "/api/topics?id=" + encodeURIComponent(id)).catch((e) =>
+          console.warn("delete topic failed:", e),
+        );
+      }
+
+      /* ── Make topic card ── */
+      function makeCard(t) {
+        const td = today();
+        const next = getNext(t);
+        const done = isTodayDone(t.id);
+        const mastered = next === null;
+        const isOver = !mastered && !done && next < td;
+        const isToday = !mastered && !done && next === td;
+        const p = getPal(t.subject);
+        const doneRevs = getRevIdx(t.id);
+
+        const card = document.createElement("div");
+        card.className =
+          "topic-card" +
+          (mastered ? " c-mastered" : "") +
+          (isOver ? " c-overdue" : "") +
+          (isToday ? " c-today" : "") +
+          (done && !mastered ? " c-done" : "");
+
+        const badge = document.createElement("div");
+        badge.className = "sbadge";
+        badge.style.cssText = `background:${p.bg};color:${p.text};border:1px solid ${p.border}`;
+        badge.textContent = t.subject;
+
+        const info = document.createElement("div");
+        info.className = "t-info";
+        const nm = document.createElement("div");
+        nm.className = "t-name";
+        nm.textContent = t.name;
+
+        const meta = document.createElement("div");
+        meta.className = "t-meta";
+
+        const chips = [];
+        if (mastered) chips.push({ cls: "good", text: "🎓 Mastered!" });
+        else if (done) chips.push({ cls: "good", text: "✓ Done today" });
+        else if (isOver)
+          chips.push({
+            cls: "danger",
+            text: `⚠️ ${daysDiff(next, td)}d overdue`,
+          });
+        else if (isToday) chips.push({ cls: "warn", text: "🔥 Due today" });
+        else chips.push({ cls: "", text: `⏳ in ${daysDiff(td, next)}d` });
+        chips.push({ cls: "", text: `Rev ${doneRevs}/${INTERVALS.length}` });
+        chips.push({ cls: "", text: `📅 ${t.addedDate}` });
+
+        chips.forEach((c) => {
+          const s = document.createElement("span");
+          s.className = "mchip" + (c.cls ? " " + c.cls : "");
+          s.textContent = c.text;
+          meta.appendChild(s);
+        });
+
+        const dots = document.createElement("div");
+        dots.className = "prog-dots";
+        INTERVALS.forEach((_, i) => {
+          const d = document.createElement("div");
+          d.className = "pdot";
+          d.title = `Day +${INTERVALS[i]}`;
+          if (i < doneRevs) d.classList.add("pdone");
+          else if (i === doneRevs && next && next <= td)
+            d.classList.add("pnext");
+          dots.appendChild(d);
+        });
+
+        info.appendChild(nm);
+        info.appendChild(meta);
+        info.appendChild(dots);
+
+        const acts = document.createElement("div");
+        acts.className = "card-acts";
+        if (!mastered && next && next <= td) {
+          const btn = document.createElement("button");
+          btn.className = "btn-mark" + (done ? " done" : "");
+          btn.textContent = done ? "✓ done" : "mark done";
+          if (!done) btn.onclick = () => markDone(t.id);
+          acts.appendChild(btn);
+        }
+        const del = document.createElement("button");
+        del.className = "btn-del";
+        del.textContent = "×";
+        del.onclick = () => deleteTopic(t.id);
+        acts.appendChild(del);
+
+        card.appendChild(badge);
+        card.appendChild(info);
+        card.appendChild(acts);
+        return card;
+      }
+
+      /* ── Main render ── */
+      function render() {
+        const subjects = loadS();
+        const topics = loadT();
+        const td = today();
+
+        // Date
+        document.getElementById("dateChip").textContent =
+          new Date().toLocaleDateString("en-IN", {
+            weekday: "short",
+            day: "numeric",
+            month: "short",
+            year: "numeric",
+          });
+
+        // Progress strip
+        const strip = document.getElementById("progressStrip");
+        strip.innerHTML = "";
+
+        // Revision completion rate:
+        // For each topic, count how many revisions were SCHEDULED so far (intervals that have passed since addedDate)
+        // vs how many were actually completed.
+        function getRevStats(tList) {
+          let scheduled = 0,
+            completed = 0;
+          tList.forEach((t) => {
+            const done = loadD()[t.id] || [];
+            INTERVALS.forEach((interval) => {
+              const due = addDays(t.addedDate, interval);
+              if (due <= td) {
+                scheduled++;
+                // A revision counts as completed if done on or after due date but before next interval
+                // We track by index: revision i is done if done.length > i
+                const idx = INTERVALS.indexOf(interval);
+                if (done.length > idx) completed++;
+              }
+            });
+          });
+          return { scheduled, completed };
+        }
+
+        const totalDue = topics.filter((t) => {
+          const n = getNext(t);
+          return n && n <= td;
+        }).length;
+        const doneToday = topics.filter((t) => isTodayDone(t.id)).length;
+        const overall = getRevStats(topics);
+
+        const progDefs = [
+          {
+            label: "Overall Revision Rate",
+            sub: `${overall.completed} of ${overall.scheduled} scheduled revisions done`,
+            val: overall.scheduled ? overall.completed / overall.scheduled : 0,
+            color: "#6366f1",
+          },
+          {
+            label: "Today's Completion",
+            sub: `${doneToday} of ${totalDue} due today done`,
+            val: totalDue ? doneToday / totalDue : 0,
+            color: "#f59e0b",
+          },
+          ...subjects.map((s) => {
+            const st = topics.filter((t) => t.subject === s.name);
+            const sr = getRevStats(st);
+            const p = PALETTE[s.pi];
+            return {
+              label: s.name + " Revision Rate",
+              sub: `${sr.completed} of ${sr.scheduled} revisions done`,
+              val: sr.scheduled ? sr.completed / sr.scheduled : 0,
+              color: p.color,
+            };
+          }),
+        ];
+
+        progDefs.forEach((pd) => {
+          const el = document.createElement("div");
+          el.className = "prog-item";
+          const pct = Math.round(pd.val * 100);
+          el.innerHTML = `
+      <div class="prog-label">${pd.label}<span>${pct}%</span></div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${pct}%;background:${pd.color}"></div></div>
+      <div style="font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;">${pd.sub}</div>
+    `;
+          strip.appendChild(el);
+        });
+
+        // Subject filter chips
+        const filterRow = document.getElementById("subjFilterRow");
+        filterRow.innerHTML = "";
+        ["ALL", ...subjects.map((s) => s.name)].forEach((name) => {
+          const isActive = activeFilter === name;
+          const pal = name === "ALL" ? null : getPal(name);
+          const chip = document.createElement("div");
+          chip.className = "subj-chip" + (isActive ? " active" : "");
+          if (isActive) {
+            if (name === "ALL") {
+              chip.style.background = "#eef2ff";
+              chip.style.borderColor = "#c7d2fe";
+              chip.style.color = "#4338ca";
+            } else {
+              chip.style.background = pal.bg;
+              chip.style.borderColor = pal.border;
+              chip.style.color = pal.text;
+            }
+          }
+          const cnt =
+            name === "ALL"
+              ? topics.length
+              : topics.filter((t) => t.subject === name).length;
+          chip.innerHTML =
+            name === "ALL"
+              ? `All <span class="chip-cnt">${cnt}</span>`
+              : `<span class="chip-dot" style="background:${pal.color}"></span>${name}<span class="chip-cnt">${cnt}</span>`;
+          chip.onclick = () => {
+            activeFilter = name;
+            render();
+          };
+          filterRow.appendChild(chip);
+        });
+
+        const manageBtn = document.createElement("button");
+        manageBtn.className = "manage-subj-btn";
+        manageBtn.innerHTML = "⊕ Manage Subjects";
+        manageBtn.onclick = () => openModal("subjectModal");
+        filterRow.appendChild(manageBtn);
+
+        // Filter topics
+        const filtered =
+          activeFilter === "ALL"
+            ? topics
+            : topics.filter((t) => t.subject === activeFilter);
+
+        // Due today
+        const todayItems = filtered
+          .filter((t) => {
+            const n = getNext(t);
+            return n && n <= td;
+          })
+          .sort((a, b) => {
+            const an = getNext(a) || "9999",
+              bn = getNext(b) || "9999";
+            return an < bn ? -1 : an > bn ? 1 : 0;
+          });
+
+        document.getElementById("todayCnt").textContent = todayItems.length;
+        const todayEl = document.getElementById("todayList");
+        if (todayItems.length === 0) {
+          todayEl.innerHTML = `<div class="empty"><div class="eicon">✨</div><p>Nothing due today${activeFilter !== "ALL" ? " for " + activeFilter : ""}!</p></div>`;
+        } else {
+          todayEl.innerHTML = "";
+          todayItems.forEach((t) => todayEl.appendChild(makeCard(t)));
+        }
+
+        // All topics
+        const allItems = [...filtered].sort((a, b) => {
+          const an = getNext(a) || "9999",
+            bn = getNext(b) || "9999";
+          return an < bn ? -1 : an > bn ? 1 : a.name.localeCompare(b.name);
+        });
+        document.getElementById("allCnt").textContent = allItems.length;
+        const allEl = document.getElementById("allList");
+        if (allItems.length === 0) {
+          allEl.innerHTML = `<div class="empty"><div class="eicon">📚</div><p>No topics yet — click <strong>+ Add Topic</strong> above!</p></div>`;
+        } else {
+          allEl.innerHTML = "";
+          allItems.forEach((t) => allEl.appendChild(makeCard(t)));
+        }
+      }
+
+      /* ── Toast ── */
+      function toast(icon, msg) {
+        const el = document.getElementById("toast");
+        document.getElementById("tIcon").textContent = icon;
+        document.getElementById("tMsg").textContent = msg;
+        el.classList.add("show");
+        clearTimeout(window._tt);
+        window._tt = setTimeout(() => el.classList.remove("show"), 2600);
+      }
+
+      /* ── Init ── */
+
+      /* ── Theme ── */
+      function toggleTheme() {
+        const isDark =
+          document.documentElement.getAttribute("data-theme") === "dark";
+        const next = isDark ? "light" : "dark";
+        document.documentElement.setAttribute("data-theme", next);
+        localStorage.setItem("rt_theme", next);
+        document.getElementById("themeToggle").textContent =
+          next === "dark" ? "☀️" : "🌙";
+      }
+
+      function initTheme() {
+        const saved = localStorage.getItem("rt_theme");
+        const prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)",
+        ).matches;
+        const theme = saved || (prefersDark ? "dark" : "light");
+        document.documentElement.setAttribute("data-theme", theme);
+        const btn = document.getElementById("themeToggle");
+        if (btn) btn.textContent = theme === "dark" ? "☀️" : "🌙";
+      }
+
+      /* ── Auth UI ── */
+      let authMode = "login"; // or "register"
+
+      function switchAuthTab(mode) {
+        authMode = mode;
+        document.getElementById("authTabLogin").classList.toggle("active", mode === "login");
+        document.getElementById("authTabRegister").classList.toggle("active", mode === "register");
+        const pass = document.getElementById("authPass");
+        pass.setAttribute("autocomplete", mode === "register" ? "new-password" : "current-password");
+        document.getElementById("authSubmit").textContent = mode === "register" ? "Sign up" : "Log in";
+        document.getElementById("authErr").textContent = "";
+      }
+
+      function showAuthScreen() {
+        document.getElementById("authScreen").classList.remove("hidden");
+        document.getElementById("topbar").classList.add("hidden");
+        document.getElementById("appMain").classList.add("hidden");
+        document.getElementById("authUser").focus();
+      }
+
+      function showApp() {
+        document.getElementById("authScreen").classList.add("hidden");
+        document.getElementById("topbar").classList.remove("hidden");
+        document.getElementById("appMain").classList.remove("hidden");
+      }
+
+      async function authSubmit() {
+        const username = document.getElementById("authUser").value.trim();
+        const password = document.getElementById("authPass").value;
+        const errEl = document.getElementById("authErr");
+        errEl.textContent = "";
+        if (!username || !password) {
+          errEl.textContent = "Enter username and password";
+          return;
+        }
+        const btn = document.getElementById("authSubmit");
+        btn.disabled = true;
+        try {
+          await api("POST", `/api/auth/${authMode}`, { username, password });
+          document.getElementById("authPass").value = "";
+          // Wipe any leftover cache from a previous user on this browser.
+          localStorage.removeItem("rt_s");
+          localStorage.removeItem("rt_t");
+          localStorage.removeItem("rt_d");
+          showApp();
+          await pullFromServer();
+          render();
+        } catch (e) {
+          errEl.textContent = e.message || "Authentication failed";
+        } finally {
+          btn.disabled = false;
+        }
+      }
+
+      async function logout() {
+        try {
+          await api("POST", "/api/auth/logout");
+        } catch (e) {
+          console.warn("logout call failed:", e);
+        }
+        localStorage.removeItem("rt_s");
+        localStorage.removeItem("rt_t");
+        localStorage.removeItem("rt_d");
+        location.reload();
+      }
+
+      async function bootAuth() {
+        try {
+          await api("GET", "/api/auth/me");
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", async () => {
+        initTheme();
+        document
+          .getElementById("topicNameInp")
+          .addEventListener("keydown", (e) => {
+            if (e.key === "Enter") addTopic();
+          });
+        document
+          .getElementById("newSubjInp")
+          .addEventListener("keydown", (e) => {
+            if (e.key === "Enter") addSubject();
+          });
+        document
+          .getElementById("authPass")
+          .addEventListener("keydown", (e) => {
+            if (e.key === "Enter") authSubmit();
+          });
+        document
+          .getElementById("authUser")
+          .addEventListener("keydown", (e) => {
+            if (e.key === "Enter") document.getElementById("authPass").focus();
+          });
+
+        if (await bootAuth()) {
+          showApp();
+          render();
+          await pullFromServer();
+          render();
+        } else {
+          showAuthScreen();
+        }
+      });
+    </script>
+  </body>
+</html>
