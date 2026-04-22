@@ -2,8 +2,22 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>RevTrack</title>
+
+    <!-- PWA manifest + theme -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#f97316" />
+
+    <!-- iOS "Add to Home Screen" -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
+    <meta name="apple-mobile-web-app-title" content="RevTrack" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+
+    <!-- Fallback favicon -->
+    <link rel="icon" type="image/png" sizes="192x192" href="/icons/icon-192.png" />
+
     <link
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
@@ -1944,6 +1958,16 @@
         } catch (e) {
           return false;
         }
+      }
+
+      // Register the service worker so the app is installable as a PWA.
+      // Fire-and-forget; registration failures shouldn't break the UI.
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("/sw.js")
+            .catch((e) => console.warn("SW registration failed:", e));
+        });
       }
 
       document.addEventListener("DOMContentLoaded", async () => {

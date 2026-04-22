@@ -3,8 +3,14 @@
   "version": "1.0.0",
   "private": true,
   "description": "Spaced-repetition revision tracker with Neon Postgres sync",
+  "scripts": {
+    "build:icons": "node scripts/build-icons.mjs"
+  },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
     "jose": "^5.9.6"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.5"
   }
 }
