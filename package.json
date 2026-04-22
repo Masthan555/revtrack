@@ -8,7 +8,8 @@
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
-    "jose": "^5.9.6"
+    "jose": "^5.9.6",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "sharp": "^0.34.5"
