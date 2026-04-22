@@ -845,6 +845,58 @@
         opacity: 1;
       }
 
+      /* ── Responsive (mobile): the topbar actions overflow on phones,
+         so we allow wrap, shrink padding, hide the date chip, and force
+         button text to a single line. ── */
+      .btn-icon,
+      .btn-logout,
+      .date-chip,
+      .manage-subj-btn {
+        white-space: nowrap;
+      }
+      @media (max-width: 720px) {
+        .topbar {
+          padding: 10px 14px;
+          height: auto;
+          min-height: 58px;
+          flex-wrap: wrap;
+          gap: 10px;
+          row-gap: 8px;
+        }
+        .topbar-actions {
+          gap: 6px;
+          flex-wrap: wrap;
+          justify-content: flex-end;
+        }
+        .date-chip {
+          display: none;
+        }
+        .btn-icon {
+          padding: 7px 11px;
+          font-size: 12px;
+        }
+        .btn-logout {
+          padding: 6px 10px;
+          font-size: 11px;
+        }
+        .app {
+          padding: 20px 14px 90px;
+        }
+        .progress-strip {
+          padding: 16px 18px;
+          gap: 12px 18px;
+        }
+      }
+      @media (max-width: 420px) {
+        .logo {
+          font-size: 16px;
+        }
+        .topbar-actions {
+          width: 100%;
+          justify-content: flex-start;
+        }
+      }
+
       /* ── Auth screen ── */
       .hidden { display: none !important; }
       .auth-screen {
