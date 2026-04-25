@@ -23,14 +23,23 @@
       rel="stylesheet"
     />
 
-    <!-- Markdown rendering for topic descriptions: parse → sanitize → highlight -->
+    <!-- Description rendering + WYSIWYG editor:
+         - hljs (syntax highlighting in saved code blocks + Quill's syntax module)
+         - DOMPurify (sanitize loaded HTML before rendering / loading into editor)
+         - marked (display path for legacy plain-text/markdown descriptions)
+         - Quill (rich-text editor with native code-block + syntax support) -->
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
     />
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.snow.css"
+    />
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
-    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/quill@2.0.2/dist/quill.js"></script>
     <style>
       :root {
         --bg: #f4f6fb;
@@ -675,86 +684,86 @@
         padding: 4px 8px;
       }
       .topic-desc th { background: var(--surface2); color: var(--text); }
-      #topicDescInp {
-        width: 100%;
-        padding: 10px 12px;
+      /* Wider modal for the topic editor since code blocks need horizontal room */
+      #topicModal .modal {
+        max-width: 580px;
+      }
+
+      /* ── Quill rich-text editor (description field) ──────────────────── */
+      #topicDescQuill {
+        height: 280px;
+      }
+      .ql-toolbar.ql-snow {
+        background: var(--surface2);
         border: 1.5px solid var(--border);
-        border-radius: var(--rsm);
+        border-bottom: none;
+        border-radius: var(--rsm) var(--rsm) 0 0;
+      }
+      .ql-container.ql-snow {
+        border: 1.5px solid var(--border);
+        border-radius: 0 0 var(--rsm) var(--rsm);
+        background: var(--surface);
+        font-family: inherit;
+        font-size: 13px;
+      }
+      .ql-editor {
+        color: var(--text);
+        min-height: 100%;
+      }
+      .ql-editor.ql-blank::before {
+        color: var(--text-light);
+        font-style: normal;
+      }
+      .ql-snow .ql-stroke { stroke: var(--text-muted); }
+      .ql-snow .ql-fill { fill: var(--text-muted); }
+      .ql-snow .ql-picker-label { color: var(--text-muted); }
+      .ql-snow.ql-toolbar button:hover .ql-stroke,
+      .ql-snow .ql-toolbar button:hover .ql-stroke,
+      .ql-snow .ql-active .ql-stroke,
+      .ql-snow.ql-toolbar button:hover .ql-picker-label,
+      .ql-snow .ql-active .ql-picker-label {
+        stroke: var(--accent);
+        color: var(--accent);
+      }
+      .ql-snow.ql-toolbar button:hover .ql-fill,
+      .ql-snow .ql-toolbar button:hover .ql-fill,
+      .ql-snow .ql-active .ql-fill {
+        fill: var(--accent);
+      }
+      .ql-snow .ql-tooltip {
+        background: var(--surface2);
+        color: var(--text);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+      }
+      .ql-snow .ql-tooltip input[type="text"] {
+        background: var(--surface);
+        color: var(--text);
+        border: 1px solid var(--border);
+      }
+      .ql-snow a { color: var(--accent); }
+      /* Code blocks inside the editor */
+      .ql-editor pre.ql-syntax {
         background: var(--surface2);
         color: var(--text);
         font-family: "JetBrains Mono", monospace;
-        font-size: 12.5px;
-        line-height: 1.55;
-        min-height: 180px;
-        resize: vertical;
-        tab-size: 2;
-        -moz-tab-size: 2;
-      }
-      #topicDescInp:focus {
-        outline: none;
-        border-color: var(--accent);
-        background: var(--surface);
-      }
-      /* Wider modal for the topic editor since code blocks need horizontal room */
-      #topicModal .modal {
-        max-width: 560px;
-      }
-      .md-toolbar {
-        display: flex;
-        gap: 4px;
-        margin-bottom: 6px;
-        flex-wrap: wrap;
-        align-items: center;
-      }
-      .md-toolbar button {
-        min-width: 30px;
-        padding: 5px 9px;
-        border: 1px solid var(--border);
-        background: var(--surface);
-        color: var(--text-muted);
-        font-family: inherit;
         font-size: 12px;
-        font-weight: 600;
-        line-height: 1;
-        cursor: pointer;
+        padding: 10px 12px;
         border-radius: 6px;
-        transition: all 0.15s;
+        border: 1px solid var(--border);
+        overflow-x: auto;
       }
-      .md-toolbar button:hover {
-        border-color: var(--accent);
-        color: var(--accent);
-        background: var(--surface2);
-      }
-      [data-theme="dark"] .md-toolbar button {
-        background: var(--surface2);
-      }
-      [data-theme="dark"] .md-toolbar button:hover {
-        background: #1a1c2e;
-      }
-      .md-preview-label {
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.8px;
-        text-transform: uppercase;
-        color: var(--text-light);
-        margin: 12px 0 4px;
-      }
-      .md-preview {
-        min-height: 80px;
-        padding: 12px 14px;
-        border: 1.5px solid var(--border);
-        border-radius: var(--rsm);
+      .ql-editor code {
         background: var(--surface2);
         color: var(--text);
-        margin-top: 0;
-        max-height: 280px;
-        overflow-y: auto;
-      }
-      .md-preview:empty::before {
-        content: "Nothing to preview yet — start typing in the editor.";
-        color: var(--text-light);
-        font-style: italic;
+        font-family: "JetBrains Mono", monospace;
         font-size: 11.5px;
+        padding: 1px 5px;
+        border-radius: 4px;
+      }
+      .ql-editor pre.ql-syntax code {
+        background: transparent;
+        padding: 0;
       }
       .empty {
         text-align: center;
@@ -1223,21 +1232,7 @@
         </div>
         <div class="field">
           <label>Description (optional)</label>
-          <div class="md-toolbar" id="mdToolbar">
-            <button type="button" onclick="mdWrap('**','**')" title="Bold"><b>B</b></button>
-            <button type="button" onclick="mdWrap('*','*')" title="Italic"><i>I</i></button>
-            <button type="button" onclick="mdWrap('`','`')" title="Inline code">&lt;/&gt;</button>
-            <button type="button" onclick="mdCodeBlock()" title="Code block">{ }</button>
-            <button type="button" onclick="mdLink()" title="Link">🔗</button>
-            <button type="button" onclick="mdLinePrefix('- ')" title="Bullet list">•</button>
-          </div>
-          <textarea
-            id="topicDescInp"
-            rows="8"
-            placeholder="```python&#10;def two_sum(nums, target): ...&#10;```&#10;See https://leetcode.com/..."
-          ></textarea>
-          <div class="md-preview-label">Preview</div>
-          <div id="topicDescPreview" class="topic-desc md-preview"></div>
+          <div id="topicDescQuill"></div>
         </div>
         <div
           id="schedPreviewWrap"
@@ -1626,7 +1621,6 @@
           : '<option value="">— add a subject first —</option>';
 
         const nameInp = document.getElementById("topicNameInp");
-        const descInp = document.getElementById("topicDescInp");
         const ivsInp = document.getElementById("topicIntervalsInp");
         const recInp = document.getElementById("topicRecurringInp");
         const title = document.getElementById("topicModalTitle");
@@ -1640,7 +1634,7 @@
           sel.value = editing.subject;
           sel.disabled = true;
           nameInp.value = editing.name;
-          descInp.value = editing.description || "";
+          setDescContent(editing.description || "");
           ivsInp.value = (topicIntervals(editing)).join(", ");
           recInp.checked = editing.recurring === true;
           title.textContent = "Edit Topic";
@@ -1648,23 +1642,18 @@
         } else {
           sel.disabled = false;
           nameInp.value = "";
-          descInp.value = "";
+          setDescContent("");
           ivsInp.value = INTERVALS.join(", ");
           recInp.checked = false;
           title.textContent = "Add New Topic";
           submit.textContent = "+ Add Topic";
         }
         renderSchedPreview();
-        // Render initial preview synchronously so the panel isn't empty for
-        // a beat after the modal opens.
-        mdRenderPreview();
       }
 
       function submitTopic() {
         const name = document.getElementById("topicNameInp").value.trim();
-        const description = document
-          .getElementById("topicDescInp")
-          .value.trim();
+        const description = getDescContent();
         const rawIntervals = document.getElementById("topicIntervalsInp").value;
         const recurring = document.getElementById("topicRecurringInp").checked;
         if (!name) return toast("⚠️", "Enter a topic name");
@@ -1730,36 +1719,55 @@
         }).catch((e) => console.warn("add topic failed:", e));
       }
 
-      // Renders the description as Markdown with code-syntax highlighting.
-      // Pipeline: marked.parse → DOMPurify.sanitize → assign innerHTML →
-      // hljs.highlightElement on each code block. If any of the CDN libraries
-      // failed to load (offline / blocked), falls back to plain text with
-      // URLs still hyperlinked, so the description never renders blank.
-      function renderMarkdown(el, text) {
+      // Renders the saved description into `el`. Two formats supported:
+      //  - HTML  (new — what Quill produces): sanitized + injected as-is.
+      //  - Plain/markdown (legacy — pre-Quill rows): run through `marked`
+      //    so old descriptions still render correctly even though we no
+      //    longer let users edit them as markdown source. Editing such a
+      //    topic loads the rendered HTML into Quill, so saving converts it.
+      // If the CDN libs failed to load entirely, falls back to plain text
+      // with URLs hyperlinked so descriptions never render blank.
+      function looksLikeHtml(s) {
+        return /<\/?[a-z][\s\S]*?>/i.test(s);
+      }
+      function renderDescription(el, text) {
         if (!text || !text.trim()) return;
-        const libsReady =
-          typeof marked !== "undefined" && typeof DOMPurify !== "undefined";
-        if (libsReady) {
-          try {
+        const haveDOMPurify = typeof DOMPurify !== "undefined";
+        const haveMarked = typeof marked !== "undefined";
+        try {
+          if (looksLikeHtml(text)) {
+            if (!haveDOMPurify) throw new Error("DOMPurify missing");
+            el.innerHTML = DOMPurify.sanitize(text);
+          } else if (haveMarked && haveDOMPurify) {
             const html = marked.parse(text, { gfm: true, breaks: true });
             el.innerHTML = DOMPurify.sanitize(html);
-            el.querySelectorAll("a").forEach((a) => {
-              a.target = "_blank";
-              a.rel = "noopener noreferrer";
-            });
-            if (typeof hljs !== "undefined") {
-              el.querySelectorAll("pre code").forEach((block) => {
-                try {
-                  hljs.highlightElement(block);
-                } catch (e) {
-                  /* unknown language — leave as plain code */
-                }
-              });
-            }
-            return;
-          } catch (e) {
-            console.warn("markdown render failed, falling back:", e);
+          } else {
+            throw new Error("markdown libs missing");
           }
+          el.querySelectorAll("a").forEach((a) => {
+            a.target = "_blank";
+            a.rel = "noopener noreferrer";
+          });
+          if (typeof hljs !== "undefined") {
+            el.querySelectorAll("pre code:not(.hljs)").forEach((block) => {
+              try {
+                hljs.highlightElement(block);
+              } catch (e) {
+                /* unknown language — leave as plain code */
+              }
+            });
+            // Quill stores its code blocks as <pre class="ql-syntax">...</pre>
+            // (not <pre><code>). Apply hljs to those too if they slipped past
+            // the editor without highlighting.
+            el.querySelectorAll("pre.ql-syntax:not(.hljs)").forEach((block) => {
+              try {
+                hljs.highlightElement(block);
+              } catch (e) {}
+            });
+          }
+          return;
+        } catch (e) {
+          console.warn("description render failed, falling back:", e);
         }
         // Fallback: plain text with auto-linkified URLs (no innerHTML, no XSS).
         el.textContent = "";
@@ -1785,106 +1793,68 @@
         }
       }
 
-      /* ── Markdown editor toolbar ──────────────────────────────────────
-         Lightweight: each button mutates the textarea's value around the
-         current selection, then re-focuses + restores a sensible selection
-         so the user can keep typing. No rich-editor library involved. */
+      /* ── Quill editor for the description field ────────────────────────
+         Lazy-init on first modal open. Quill mounts onto #topicDescQuill
+         and provides its own toolbar (bold, italic, link, code, code-block,
+         lists, headings). The syntax module hooks into our globally-loaded
+         hljs so code blocks get highlighted as the user types/pastes. */
 
-      function _descTa() {
-        return document.getElementById("topicDescInp");
+      let descQuill = null;
+
+      function initDescQuill() {
+        if (descQuill || typeof Quill === "undefined") return descQuill;
+        descQuill = new Quill("#topicDescQuill", {
+          theme: "snow",
+          placeholder: "Paste code, write notes, or drop a link…",
+          modules: {
+            // syntax module auto-highlights code blocks via hljs as you edit
+            syntax: typeof hljs !== "undefined" ? { hljs } : false,
+            toolbar: [
+              ["bold", "italic", "link"],
+              ["code", "code-block"],
+              [{ list: "ordered" }, { list: "bullet" }],
+              [{ header: [2, 3, false] }],
+              ["clean"],
+            ],
+          },
+        });
+        return descQuill;
       }
 
-      function mdWrap(before, after) {
-        const ta = _descTa();
-        const s = ta.selectionStart;
-        const e = ta.selectionEnd;
-        const sel = ta.value.slice(s, e);
-        ta.value =
-          ta.value.slice(0, s) + before + sel + after + ta.value.slice(e);
-        ta.focus();
-        if (sel) {
-          ta.selectionStart = s + before.length;
-          ta.selectionEnd = e + before.length;
-        } else {
-          ta.selectionStart = ta.selectionEnd = s + before.length;
+      // Loads `value` (HTML or plain/markdown) into the editor. For legacy
+      // markdown content we run it through `marked` so the user sees their
+      // notes already-formatted; saving will then persist as HTML.
+      function setDescContent(value) {
+        const q = initDescQuill();
+        if (!q) return;
+        if (!value || !value.trim()) {
+          q.setText("");
+          return;
         }
-        mdSchedulePreview();
-      }
-
-      function mdCodeBlock() {
-        const ta = _descTa();
-        const s = ta.selectionStart;
-        const e = ta.selectionEnd;
-        const sel = ta.value.slice(s, e);
-        // Ensure the fence sits on its own line — prepend/append \n if needed.
-        const before = s > 0 && ta.value[s - 1] !== "\n" ? "\n" : "";
-        const after = e < ta.value.length && ta.value[e] !== "\n" ? "\n" : "";
-
-        if (sel) {
-          // Wrap the selection as a fenced block.
-          const body = sel.endsWith("\n") ? sel.slice(0, -1) : sel;
-          const insertion = before + "```\n" + body + "\n```\n" + after;
-          ta.value = ta.value.slice(0, s) + insertion + ta.value.slice(e);
-          ta.focus();
-          const bodyStart = s + before.length + 4; // past "```\n"
-          ta.selectionStart = bodyStart;
-          ta.selectionEnd = bodyStart + body.length;
-        } else {
-          // Empty block with the cursor parked on the inner blank line.
-          const insertion = before + "```\n\n```\n" + after;
-          ta.value = ta.value.slice(0, s) + insertion + ta.value.slice(s);
-          ta.focus();
-          const cursorPos = s + before.length + 4; // past "```\n"
-          ta.selectionStart = ta.selectionEnd = cursorPos;
+        let html = value;
+        if (!looksLikeHtml(value) && typeof marked !== "undefined") {
+          try {
+            html = marked.parse(value, { gfm: true, breaks: true });
+          } catch (e) {
+            html = value;
+          }
         }
-        mdSchedulePreview();
+        if (typeof DOMPurify !== "undefined") {
+          html = DOMPurify.sanitize(html);
+        }
+        // clipboard.dangerouslyPasteHTML feeds the HTML through Quill's
+        // own parser so it ends up in Quill's data model cleanly.
+        q.setText("");
+        q.clipboard.dangerouslyPasteHTML(0, html, "silent");
       }
 
-      function mdLink() {
-        const ta = _descTa();
-        const s = ta.selectionStart;
-        const e = ta.selectionEnd;
-        const sel = ta.value.slice(s, e) || "link text";
-        const insertion = `[${sel}](url)`;
-        ta.value = ta.value.slice(0, s) + insertion + ta.value.slice(e);
-        ta.focus();
-        // Select the "url" placeholder so the user can paste/type immediately.
-        const urlStart = s + sel.length + 3; // after "](" (counting from "[")
-        ta.selectionStart = urlStart;
-        ta.selectionEnd = urlStart + 3; // length of "url"
-        mdSchedulePreview();
-      }
-
-      function mdLinePrefix(prefix) {
-        const ta = _descTa();
-        const s = ta.selectionStart;
-        const e = ta.selectionEnd;
-        // Expand to whole lines.
-        const lineStart = ta.value.lastIndexOf("\n", s - 1) + 1;
-        const lineEnd =
-          ta.value.indexOf("\n", e) === -1 ? ta.value.length : ta.value.indexOf("\n", e);
-        const lines = ta.value.slice(lineStart, lineEnd).split("\n");
-        const prefixed = lines.map((l) => prefix + l).join("\n");
-        ta.value =
-          ta.value.slice(0, lineStart) + prefixed + ta.value.slice(lineEnd);
-        ta.focus();
-        ta.selectionStart = lineStart;
-        ta.selectionEnd = lineStart + prefixed.length;
-        mdSchedulePreview();
-      }
-
-      // Live preview: re-renders the description into the preview pane after
-      // a short debounce so per-keystroke typing doesn't thrash hljs.
-      let _mdPreviewTimer = null;
-      function mdSchedulePreview() {
-        clearTimeout(_mdPreviewTimer);
-        _mdPreviewTimer = setTimeout(mdRenderPreview, 80);
-      }
-      function mdRenderPreview() {
-        const pv = document.getElementById("topicDescPreview");
-        if (!pv) return;
-        pv.innerHTML = "";
-        renderMarkdown(pv, _descTa().value);
+      // Returns the current description as HTML, or "" if the editor is empty.
+      function getDescContent() {
+        const q = initDescQuill();
+        if (!q) return "";
+        // Quill represents empty as a single newline.
+        if (q.getLength() <= 1) return "";
+        return q.root.innerHTML;
       }
 
       function markDone(id) {
@@ -1993,7 +1963,7 @@
         if (t.description && t.description.trim()) {
           const desc = document.createElement("div");
           desc.className = "topic-desc";
-          renderMarkdown(desc, t.description);
+          renderDescription(desc, t.description);
           info.appendChild(desc);
         }
 
@@ -2412,28 +2382,6 @@
           .addEventListener("keydown", (e) => {
             if (e.key === "Enter") submitTopic();
           });
-        // Tab inside the description textarea inserts two spaces instead
-        // of moving focus, so users can indent code lines naturally.
-        document
-          .getElementById("topicDescInp")
-          .addEventListener("keydown", (e) => {
-            if (e.key === "Tab") {
-              e.preventDefault();
-              const ta = e.target;
-              const s = ta.selectionStart;
-              const en = ta.selectionEnd;
-              ta.value =
-                ta.value.slice(0, s) + "  " + ta.value.slice(en);
-              ta.selectionStart = ta.selectionEnd = s + 2;
-              mdSchedulePreview();
-            }
-          });
-        // Live preview: re-render the preview pane ~80 ms after the user
-        // stops typing so we don't run marked + DOMPurify + hljs on every
-        // single keystroke.
-        document
-          .getElementById("topicDescInp")
-          .addEventListener("input", mdSchedulePreview);
         document
           .getElementById("newSubjInp")
           .addEventListener("keydown", (e) => {
