@@ -22,6 +22,15 @@
       href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
       rel="stylesheet"
     />
+
+    <!-- Markdown rendering for topic descriptions: parse → sanitize → highlight -->
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
+    />
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <style>
       :root {
         --bg: #f4f6fb;
@@ -580,31 +589,115 @@
         font-size: 12px;
         color: var(--text-muted);
         line-height: 1.5;
-        white-space: pre-wrap;
         word-break: break-word;
       }
+      .topic-desc > *:first-child { margin-top: 0; }
+      .topic-desc > *:last-child { margin-bottom: 0; }
+      .topic-desc p { margin: 4px 0; }
+      .topic-desc h1,
+      .topic-desc h2,
+      .topic-desc h3,
+      .topic-desc h4,
+      .topic-desc h5,
+      .topic-desc h6 {
+        font-size: 13px;
+        font-weight: 700;
+        color: var(--text);
+        margin: 8px 0 4px;
+      }
+      .topic-desc ul,
+      .topic-desc ol {
+        margin: 4px 0;
+        padding-left: 20px;
+      }
+      .topic-desc li { margin: 2px 0; }
       .topic-desc a {
         color: var(--accent);
         text-decoration: none;
         border-bottom: 1px dashed var(--accent);
       }
       .topic-desc a:hover { border-bottom-style: solid; }
+      .topic-desc code {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+      }
+      .topic-desc :not(pre) > code {
+        background: var(--surface2);
+        padding: 1px 5px;
+        border-radius: 4px;
+        color: var(--text);
+      }
+      .topic-desc pre {
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 10px 12px;
+        margin: 6px 0;
+        overflow-x: auto;
+      }
+      .topic-desc pre code {
+        background: transparent !important;
+        padding: 0 !important;
+        font-size: 11.5px;
+        line-height: 1.45;
+        color: inherit;
+      }
+      /* hljs theme paints its own colors; we just neutralize its container styling */
+      .topic-desc .hljs {
+        background: transparent !important;
+        padding: 0 !important;
+      }
+      .topic-desc blockquote {
+        border-left: 3px solid var(--border);
+        margin: 6px 0;
+        padding-left: 10px;
+        color: var(--text-light);
+      }
+      .topic-desc img {
+        max-width: 100%;
+        border-radius: 6px;
+        margin: 4px 0;
+      }
+      .topic-desc strong { color: var(--text); }
+      .topic-desc hr {
+        border: none;
+        border-top: 1px solid var(--border);
+        margin: 10px 0;
+      }
+      .topic-desc table {
+        border-collapse: collapse;
+        margin: 6px 0;
+        font-size: 11px;
+      }
+      .topic-desc th,
+      .topic-desc td {
+        border: 1px solid var(--border);
+        padding: 4px 8px;
+      }
+      .topic-desc th { background: var(--surface2); color: var(--text); }
       #topicDescInp {
         width: 100%;
-        padding: 9px 11px;
+        padding: 10px 12px;
         border: 1.5px solid var(--border);
         border-radius: var(--rsm);
         background: var(--surface2);
         color: var(--text);
-        font-family: inherit;
-        font-size: 13px;
-        line-height: 1.5;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12.5px;
+        line-height: 1.55;
+        min-height: 180px;
         resize: vertical;
+        tab-size: 2;
+        -moz-tab-size: 2;
       }
       #topicDescInp:focus {
         outline: none;
         border-color: var(--accent);
         background: var(--surface);
+      }
+      /* Wider modal for the topic editor since code blocks need horizontal room */
+      #topicModal .modal {
+        max-width: 560px;
       }
       .empty {
         text-align: center;
@@ -1072,11 +1165,22 @@
           />
         </div>
         <div class="field">
-          <label>Description (optional)</label>
+          <label
+            >Description (optional)
+            <span
+              style="
+                font-weight: 400;
+                color: var(--text-light);
+                font-size: 11px;
+                margin-left: 6px;
+              "
+              >· Markdown supported (`code`, ```fences```, **bold**, links)</span
+            ></label
+          >
           <textarea
             id="topicDescInp"
-            rows="3"
-            placeholder="Paste reference links or add notes…"
+            rows="9"
+            placeholder="e.g. ```python&#10;def two_sum(nums, target): ...&#10;```&#10;See https://leetcode.com/..."
           ></textarea>
         </div>
         <div
@@ -1567,9 +1671,39 @@
         }).catch((e) => console.warn("add topic failed:", e));
       }
 
-      // Renders plain text into `el`, turning http(s) URLs into anchor elements.
-      // Uses text nodes + createElement — no innerHTML, so no XSS risk.
-      function renderLinkifiedText(el, text) {
+      // Renders the description as Markdown with code-syntax highlighting.
+      // Pipeline: marked.parse → DOMPurify.sanitize → assign innerHTML →
+      // hljs.highlightElement on each code block. If any of the CDN libraries
+      // failed to load (offline / blocked), falls back to plain text with
+      // URLs still hyperlinked, so the description never renders blank.
+      function renderMarkdown(el, text) {
+        if (!text || !text.trim()) return;
+        const libsReady =
+          typeof marked !== "undefined" && typeof DOMPurify !== "undefined";
+        if (libsReady) {
+          try {
+            const html = marked.parse(text, { gfm: true, breaks: true });
+            el.innerHTML = DOMPurify.sanitize(html);
+            el.querySelectorAll("a").forEach((a) => {
+              a.target = "_blank";
+              a.rel = "noopener noreferrer";
+            });
+            if (typeof hljs !== "undefined") {
+              el.querySelectorAll("pre code").forEach((block) => {
+                try {
+                  hljs.highlightElement(block);
+                } catch (e) {
+                  /* unknown language — leave as plain code */
+                }
+              });
+            }
+            return;
+          } catch (e) {
+            console.warn("markdown render failed, falling back:", e);
+          }
+        }
+        // Fallback: plain text with auto-linkified URLs (no innerHTML, no XSS).
+        el.textContent = "";
         const urlRe = /(https?:\/\/[^\s<>"')]+)/g;
         let lastIdx = 0;
         let m;
@@ -1698,7 +1832,7 @@
         if (t.description && t.description.trim()) {
           const desc = document.createElement("div");
           desc.className = "topic-desc";
-          renderLinkifiedText(desc, t.description);
+          renderMarkdown(desc, t.description);
           info.appendChild(desc);
         }
 
@@ -2116,6 +2250,21 @@
           .getElementById("topicIntervalsInp")
           .addEventListener("keydown", (e) => {
             if (e.key === "Enter") submitTopic();
+          });
+        // Tab inside the description textarea inserts two spaces instead
+        // of moving focus, so users can indent code lines naturally.
+        document
+          .getElementById("topicDescInp")
+          .addEventListener("keydown", (e) => {
+            if (e.key === "Tab") {
+              e.preventDefault();
+              const ta = e.target;
+              const s = ta.selectionStart;
+              const en = ta.selectionEnd;
+              ta.value =
+                ta.value.slice(0, s) + "  " + ta.value.slice(en);
+              ta.selectionStart = ta.selectionEnd = s + 2;
+            }
           });
         document
           .getElementById("newSubjInp")
