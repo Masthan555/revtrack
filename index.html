@@ -689,71 +689,66 @@
         max-width: 580px;
       }
 
-      /* ── Quill rich-text editor (description field) ──────────────────── */
+      /* ── Quill rich-text editor (description field) ────────────────────
+         Quill 2.x ships its own snow theme with hard-coded colors. We
+         override the bits we need; some need !important to beat the CDN
+         stylesheet's specificity. */
       #topicDescQuill {
-        height: 280px;
+        height: 300px;
       }
-      .ql-toolbar.ql-snow {
-        background: var(--surface2);
-        border: 1.5px solid var(--border);
-        border-bottom: none;
+      #topicModal .ql-toolbar.ql-snow {
+        background: var(--surface2) !important;
+        border: 1.5px solid var(--border) !important;
+        border-bottom: none !important;
         border-radius: var(--rsm) var(--rsm) 0 0;
       }
-      .ql-container.ql-snow {
-        border: 1.5px solid var(--border);
+      #topicModal .ql-container.ql-snow {
+        border: 1.5px solid var(--border) !important;
         border-radius: 0 0 var(--rsm) var(--rsm);
-        background: var(--surface);
+        background: var(--surface) !important;
         font-family: inherit;
         font-size: 13px;
       }
-      .ql-editor {
-        color: var(--text);
+      #topicModal .ql-editor {
+        color: var(--text) !important;
+        background: var(--surface) !important;
         min-height: 100%;
       }
-      .ql-editor.ql-blank::before {
+      #topicModal .ql-editor.ql-blank::before {
         color: var(--text-light);
         font-style: normal;
       }
-      .ql-snow .ql-stroke { stroke: var(--text-muted); }
-      .ql-snow .ql-fill { fill: var(--text-muted); }
-      .ql-snow .ql-picker-label { color: var(--text-muted); }
-      .ql-snow.ql-toolbar button:hover .ql-stroke,
-      .ql-snow .ql-toolbar button:hover .ql-stroke,
-      .ql-snow .ql-active .ql-stroke,
-      .ql-snow.ql-toolbar button:hover .ql-picker-label,
-      .ql-snow .ql-active .ql-picker-label {
+      #topicModal .ql-snow .ql-stroke { stroke: var(--text-muted); }
+      #topicModal .ql-snow .ql-fill { fill: var(--text-muted); }
+      #topicModal .ql-snow .ql-picker { color: var(--text-muted); }
+      #topicModal .ql-snow.ql-toolbar button:hover .ql-stroke,
+      #topicModal .ql-snow .ql-active .ql-stroke {
         stroke: var(--accent);
-        color: var(--accent);
       }
-      .ql-snow.ql-toolbar button:hover .ql-fill,
-      .ql-snow .ql-toolbar button:hover .ql-fill,
-      .ql-snow .ql-active .ql-fill {
+      #topicModal .ql-snow.ql-toolbar button:hover .ql-fill,
+      #topicModal .ql-snow .ql-active .ql-fill {
         fill: var(--accent);
       }
-      .ql-snow .ql-tooltip {
+      #topicModal .ql-snow.ql-toolbar button:hover .ql-picker-label,
+      #topicModal .ql-snow .ql-active .ql-picker-label {
+        color: var(--accent);
+      }
+      #topicModal .ql-snow .ql-tooltip {
         background: var(--surface2);
         color: var(--text);
         border: 1px solid var(--border);
         box-shadow: var(--shadow);
       }
-      .ql-snow .ql-tooltip input[type="text"] {
+      #topicModal .ql-snow .ql-tooltip input[type="text"] {
         background: var(--surface);
         color: var(--text);
         border: 1px solid var(--border);
       }
-      .ql-snow a { color: var(--accent); }
-      /* Code blocks inside the editor */
-      .ql-editor pre.ql-syntax {
-        background: var(--surface2);
-        color: var(--text);
-        font-family: "JetBrains Mono", monospace;
-        font-size: 12px;
-        padding: 10px 12px;
-        border-radius: 6px;
-        border: 1px solid var(--border);
-        overflow-x: auto;
-      }
-      .ql-editor code {
+      #topicModal .ql-snow a { color: var(--accent); }
+
+      /* Inline `code` */
+      #topicModal .ql-editor code,
+      #topicModal .ql-editor .ql-code {
         background: var(--surface2);
         color: var(--text);
         font-family: "JetBrains Mono", monospace;
@@ -761,9 +756,52 @@
         padding: 1px 5px;
         border-radius: 4px;
       }
-      .ql-editor pre.ql-syntax code {
+
+      /* Code-block container (Quill 2.x: <div class="ql-code-block-container">
+         containing one <div class="ql-code-block"> per line). Always painted
+         dark so the github-dark hljs syntax colors are always readable, no
+         matter which app theme is active. */
+      #topicModal .ql-editor .ql-code-block-container {
+        background: #0d1117 !important;
+        color: #c9d1d9 !important;
+        border: 1px solid #30363d !important;
+        border-radius: 6px !important;
+        padding: 10px 12px !important;
+        margin: 6px 0 !important;
+        font-family: "JetBrains Mono", monospace !important;
+        font-size: 12px !important;
+        line-height: 1.55 !important;
+        overflow-x: auto;
+      }
+      #topicModal .ql-editor .ql-code-block {
+        background: transparent !important;
+        color: inherit !important;
+        font-family: inherit !important;
+        padding: 0 !important;
+      }
+      /* Language picker dropdown that floats above the code block */
+      #topicModal .ql-snow .ql-editor .ql-code-block-container .ql-ui {
+        color: #c9d1d9 !important;
+        background: #161b22 !important;
+        border: 1px solid #30363d !important;
+        border-radius: 4px !important;
+      }
+      /* Card display: same treatment for code blocks rendered from saved HTML */
+      .topic-desc .ql-code-block-container {
+        background: #0d1117;
+        color: #c9d1d9;
+        border: 1px solid #30363d;
+        border-radius: 6px;
+        padding: 10px 12px;
+        margin: 6px 0;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        line-height: 1.55;
+        overflow-x: auto;
+      }
+      .topic-desc .ql-code-block {
         background: transparent;
-        padding: 0;
+        font-family: inherit;
       }
       .empty {
         text-align: center;
