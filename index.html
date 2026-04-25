@@ -725,31 +725,36 @@
         color: var(--accent);
         background: var(--surface2);
       }
-      .md-toolbar #mdPreviewBtn {
-        font-size: 11px;
-        padding: 5px 10px;
-      }
       [data-theme="dark"] .md-toolbar button {
         background: var(--surface2);
       }
       [data-theme="dark"] .md-toolbar button:hover {
         background: #1a1c2e;
       }
+      .md-preview-label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.8px;
+        text-transform: uppercase;
+        color: var(--text-light);
+        margin: 12px 0 4px;
+      }
       .md-preview {
-        min-height: 180px;
+        min-height: 80px;
         padding: 12px 14px;
         border: 1.5px solid var(--border);
         border-radius: var(--rsm);
         background: var(--surface2);
         color: var(--text);
         margin-top: 0;
-        max-height: 360px;
+        max-height: 280px;
         overflow-y: auto;
       }
       .md-preview:empty::before {
-        content: "(empty)";
+        content: "Nothing to preview yet — start typing in the editor.";
         color: var(--text-light);
         font-style: italic;
+        font-size: 11.5px;
       }
       .empty {
         text-align: center;
@@ -1225,15 +1230,14 @@
             <button type="button" onclick="mdCodeBlock()" title="Code block">{ }</button>
             <button type="button" onclick="mdLink()" title="Link">🔗</button>
             <button type="button" onclick="mdLinePrefix('- ')" title="Bullet list">•</button>
-            <span style="flex:1"></span>
-            <button type="button" id="mdPreviewBtn" onclick="mdTogglePreview()" title="Toggle preview">👁 Preview</button>
           </div>
           <textarea
             id="topicDescInp"
-            rows="10"
+            rows="8"
             placeholder="```python&#10;def two_sum(nums, target): ...&#10;```&#10;See https://leetcode.com/..."
           ></textarea>
-          <div id="topicDescPreview" class="topic-desc md-preview" style="display:none"></div>
+          <div class="md-preview-label">Preview</div>
+          <div id="topicDescPreview" class="topic-desc md-preview"></div>
         </div>
         <div
           id="schedPreviewWrap"
@@ -1650,13 +1654,10 @@
           title.textContent = "Add New Topic";
           submit.textContent = "+ Add Topic";
         }
-        // Always open in edit (not preview) mode.
-        const pv = document.getElementById("topicDescPreview");
-        const pvBtn = document.getElementById("mdPreviewBtn");
-        if (pv) pv.style.display = "none";
-        descInp.style.display = "";
-        if (pvBtn) pvBtn.innerHTML = "👁 Preview";
         renderSchedPreview();
+        // Render initial preview synchronously so the panel isn't empty for
+        // a beat after the modal opens.
+        mdRenderPreview();
       }
 
       function submitTopic() {
@@ -1807,6 +1808,7 @@
         } else {
           ta.selectionStart = ta.selectionEnd = s + before.length;
         }
+        mdSchedulePreview();
       }
 
       function mdCodeBlock() {
@@ -1835,6 +1837,7 @@
           const cursorPos = s + before.length + 4; // past "```\n"
           ta.selectionStart = ta.selectionEnd = cursorPos;
         }
+        mdSchedulePreview();
       }
 
       function mdLink() {
@@ -1849,6 +1852,7 @@
         const urlStart = s + sel.length + 3; // after "](" (counting from "[")
         ta.selectionStart = urlStart;
         ta.selectionEnd = urlStart + 3; // length of "url"
+        mdSchedulePreview();
       }
 
       function mdLinePrefix(prefix) {
@@ -1866,27 +1870,21 @@
         ta.focus();
         ta.selectionStart = lineStart;
         ta.selectionEnd = lineStart + prefixed.length;
+        mdSchedulePreview();
       }
 
-      function mdTogglePreview() {
-        const ta = _descTa();
+      // Live preview: re-renders the description into the preview pane after
+      // a short debounce so per-keystroke typing doesn't thrash hljs.
+      let _mdPreviewTimer = null;
+      function mdSchedulePreview() {
+        clearTimeout(_mdPreviewTimer);
+        _mdPreviewTimer = setTimeout(mdRenderPreview, 80);
+      }
+      function mdRenderPreview() {
         const pv = document.getElementById("topicDescPreview");
-        const btn = document.getElementById("mdPreviewBtn");
-        const editing = pv.style.display === "none";
-        if (editing) {
-          // Switch to preview
-          pv.innerHTML = "";
-          renderMarkdown(pv, ta.value);
-          pv.style.display = "";
-          ta.style.display = "none";
-          btn.innerHTML = "✏️ Edit";
-        } else {
-          // Switch back to edit
-          pv.style.display = "none";
-          ta.style.display = "";
-          btn.innerHTML = "👁 Preview";
-          ta.focus();
-        }
+        if (!pv) return;
+        pv.innerHTML = "";
+        renderMarkdown(pv, _descTa().value);
       }
 
       function markDone(id) {
@@ -2427,8 +2425,15 @@
               ta.value =
                 ta.value.slice(0, s) + "  " + ta.value.slice(en);
               ta.selectionStart = ta.selectionEnd = s + 2;
+              mdSchedulePreview();
             }
           });
+        // Live preview: re-render the preview pane ~80 ms after the user
+        // stops typing so we don't run marked + DOMPurify + hljs on every
+        // single keystroke.
+        document
+          .getElementById("topicDescInp")
+          .addEventListener("input", mdSchedulePreview);
         document
           .getElementById("newSubjInp")
           .addEventListener("keydown", (e) => {
