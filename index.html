@@ -699,6 +699,58 @@
       #topicModal .modal {
         max-width: 560px;
       }
+      .md-toolbar {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 6px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .md-toolbar button {
+        min-width: 30px;
+        padding: 5px 9px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-muted);
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1;
+        cursor: pointer;
+        border-radius: 6px;
+        transition: all 0.15s;
+      }
+      .md-toolbar button:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--surface2);
+      }
+      .md-toolbar #mdPreviewBtn {
+        font-size: 11px;
+        padding: 5px 10px;
+      }
+      [data-theme="dark"] .md-toolbar button {
+        background: var(--surface2);
+      }
+      [data-theme="dark"] .md-toolbar button:hover {
+        background: #1a1c2e;
+      }
+      .md-preview {
+        min-height: 180px;
+        padding: 12px 14px;
+        border: 1.5px solid var(--border);
+        border-radius: var(--rsm);
+        background: var(--surface2);
+        color: var(--text);
+        margin-top: 0;
+        max-height: 360px;
+        overflow-y: auto;
+      }
+      .md-preview:empty::before {
+        content: "(empty)";
+        color: var(--text-light);
+        font-style: italic;
+      }
       .empty {
         text-align: center;
         padding: 28px 20px;
@@ -1165,23 +1217,23 @@
           />
         </div>
         <div class="field">
-          <label
-            >Description (optional)
-            <span
-              style="
-                font-weight: 400;
-                color: var(--text-light);
-                font-size: 11px;
-                margin-left: 6px;
-              "
-              >· Markdown supported (`code`, ```fences```, **bold**, links)</span
-            ></label
-          >
+          <label>Description (optional)</label>
+          <div class="md-toolbar" id="mdToolbar">
+            <button type="button" onclick="mdWrap('**','**')" title="Bold"><b>B</b></button>
+            <button type="button" onclick="mdWrap('*','*')" title="Italic"><i>I</i></button>
+            <button type="button" onclick="mdWrap('`','`')" title="Inline code">&lt;/&gt;</button>
+            <button type="button" onclick="mdCodeBlock()" title="Code block">{ }</button>
+            <button type="button" onclick="mdLink()" title="Link">🔗</button>
+            <button type="button" onclick="mdLinePrefix('- ')" title="Bullet list">•</button>
+            <span style="flex:1"></span>
+            <button type="button" id="mdPreviewBtn" onclick="mdTogglePreview()" title="Toggle preview">👁 Preview</button>
+          </div>
           <textarea
             id="topicDescInp"
-            rows="9"
-            placeholder="e.g. ```python&#10;def two_sum(nums, target): ...&#10;```&#10;See https://leetcode.com/..."
+            rows="10"
+            placeholder="```python&#10;def two_sum(nums, target): ...&#10;```&#10;See https://leetcode.com/..."
           ></textarea>
+          <div id="topicDescPreview" class="topic-desc md-preview" style="display:none"></div>
         </div>
         <div
           id="schedPreviewWrap"
@@ -1598,6 +1650,12 @@
           title.textContent = "Add New Topic";
           submit.textContent = "+ Add Topic";
         }
+        // Always open in edit (not preview) mode.
+        const pv = document.getElementById("topicDescPreview");
+        const pvBtn = document.getElementById("mdPreviewBtn");
+        if (pv) pv.style.display = "none";
+        descInp.style.display = "";
+        if (pvBtn) pvBtn.innerHTML = "👁 Preview";
         renderSchedPreview();
       }
 
@@ -1723,6 +1781,111 @@
         }
         if (lastIdx < text.length) {
           el.appendChild(document.createTextNode(text.slice(lastIdx)));
+        }
+      }
+
+      /* ── Markdown editor toolbar ──────────────────────────────────────
+         Lightweight: each button mutates the textarea's value around the
+         current selection, then re-focuses + restores a sensible selection
+         so the user can keep typing. No rich-editor library involved. */
+
+      function _descTa() {
+        return document.getElementById("topicDescInp");
+      }
+
+      function mdWrap(before, after) {
+        const ta = _descTa();
+        const s = ta.selectionStart;
+        const e = ta.selectionEnd;
+        const sel = ta.value.slice(s, e);
+        ta.value =
+          ta.value.slice(0, s) + before + sel + after + ta.value.slice(e);
+        ta.focus();
+        if (sel) {
+          ta.selectionStart = s + before.length;
+          ta.selectionEnd = e + before.length;
+        } else {
+          ta.selectionStart = ta.selectionEnd = s + before.length;
+        }
+      }
+
+      function mdCodeBlock() {
+        const ta = _descTa();
+        const s = ta.selectionStart;
+        const e = ta.selectionEnd;
+        const sel = ta.value.slice(s, e);
+        // Ensure the fence sits on its own line — prepend/append \n if needed.
+        const before = s > 0 && ta.value[s - 1] !== "\n" ? "\n" : "";
+        const after = e < ta.value.length && ta.value[e] !== "\n" ? "\n" : "";
+
+        if (sel) {
+          // Wrap the selection as a fenced block.
+          const body = sel.endsWith("\n") ? sel.slice(0, -1) : sel;
+          const insertion = before + "```\n" + body + "\n```\n" + after;
+          ta.value = ta.value.slice(0, s) + insertion + ta.value.slice(e);
+          ta.focus();
+          const bodyStart = s + before.length + 4; // past "```\n"
+          ta.selectionStart = bodyStart;
+          ta.selectionEnd = bodyStart + body.length;
+        } else {
+          // Empty block with the cursor parked on the inner blank line.
+          const insertion = before + "```\n\n```\n" + after;
+          ta.value = ta.value.slice(0, s) + insertion + ta.value.slice(s);
+          ta.focus();
+          const cursorPos = s + before.length + 4; // past "```\n"
+          ta.selectionStart = ta.selectionEnd = cursorPos;
+        }
+      }
+
+      function mdLink() {
+        const ta = _descTa();
+        const s = ta.selectionStart;
+        const e = ta.selectionEnd;
+        const sel = ta.value.slice(s, e) || "link text";
+        const insertion = `[${sel}](url)`;
+        ta.value = ta.value.slice(0, s) + insertion + ta.value.slice(e);
+        ta.focus();
+        // Select the "url" placeholder so the user can paste/type immediately.
+        const urlStart = s + sel.length + 3; // after "](" (counting from "[")
+        ta.selectionStart = urlStart;
+        ta.selectionEnd = urlStart + 3; // length of "url"
+      }
+
+      function mdLinePrefix(prefix) {
+        const ta = _descTa();
+        const s = ta.selectionStart;
+        const e = ta.selectionEnd;
+        // Expand to whole lines.
+        const lineStart = ta.value.lastIndexOf("\n", s - 1) + 1;
+        const lineEnd =
+          ta.value.indexOf("\n", e) === -1 ? ta.value.length : ta.value.indexOf("\n", e);
+        const lines = ta.value.slice(lineStart, lineEnd).split("\n");
+        const prefixed = lines.map((l) => prefix + l).join("\n");
+        ta.value =
+          ta.value.slice(0, lineStart) + prefixed + ta.value.slice(lineEnd);
+        ta.focus();
+        ta.selectionStart = lineStart;
+        ta.selectionEnd = lineStart + prefixed.length;
+      }
+
+      function mdTogglePreview() {
+        const ta = _descTa();
+        const pv = document.getElementById("topicDescPreview");
+        const btn = document.getElementById("mdPreviewBtn");
+        const editing = pv.style.display === "none";
+        if (editing) {
+          // Switch to preview
+          pv.innerHTML = "";
+          renderMarkdown(pv, ta.value);
+          pv.style.display = "";
+          ta.style.display = "none";
+          btn.innerHTML = "✏️ Edit";
+        } else {
+          // Switch back to edit
+          pv.style.display = "none";
+          ta.style.display = "";
+          btn.innerHTML = "👁 Preview";
+          ta.focus();
         }
       }
 
