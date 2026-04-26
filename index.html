@@ -23,24 +23,17 @@
       rel="stylesheet"
     />
 
-    <!-- Description rendering + WYSIWYG editor:
-         - hljs (syntax highlighting on saved code blocks rendered to cards)
-         - DOMPurify (sanitize HTML before injecting into the DOM)
-         - marked (parse markdown for card display)
-         - Toast UI Editor (WYSIWYG markdown editor with inline rendering of
-           pasted code, lists, headings — used in the topic edit modal) -->
+    <!-- Description rendering for topic cards + the edit modal preview:
+         - hljs (syntax-highlights code blocks)
+         - DOMPurify (sanitises rendered HTML before innerHTML)
+         - marked (parses markdown source) -->
     <link
       rel="stylesheet"
       href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
     />
-    <link
-      rel="stylesheet"
-      href="https://uicdn.toast.com/editor/latest/toastui-editor.min.css"
-    />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
-    <script defer src="https://uicdn.toast.com/editor/latest/toastui-editor-all.min.js"></script>
     <style>
       :root {
         --bg: #f4f6fb;
@@ -690,84 +683,79 @@
         max-width: 580px;
       }
 
-      /* ── Toast UI Editor (description field, WYSIWYG mode) ────────────
-         Toast UI ships its own light styling. We override to match our
-         theme; force code blocks to a dark background so the github-dark
-         hljs colors stay readable in either app theme. */
-      #topicDescTui {
-        background: var(--surface);
-      }
-      #topicModal .toastui-editor-defaultUI {
+      /* ── Markdown editor (description field) ───────────────────────────
+         Plain textarea + small toolbar of buttons that wrap the selection
+         in markdown syntax. Preview button toggles a rendered view. */
+      #topicDescInp {
+        width: 100%;
+        padding: 10px 12px;
         border: 1.5px solid var(--border);
         border-radius: var(--rsm);
+        background: var(--surface2);
+        color: var(--text);
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12.5px;
+        line-height: 1.55;
+        min-height: 200px;
+        resize: vertical;
+        tab-size: 2;
+        -moz-tab-size: 2;
+      }
+      #topicDescInp:focus {
+        outline: none;
+        border-color: var(--accent);
         background: var(--surface);
       }
-      #topicModal .toastui-editor-toolbar,
-      #topicModal .toastui-editor-toolbar-group {
-        background: var(--surface2) !important;
-        border-color: var(--border) !important;
+      .md-toolbar {
+        display: flex;
+        gap: 4px;
+        margin-bottom: 6px;
+        flex-wrap: wrap;
+        align-items: center;
       }
-      #topicModal .toastui-editor-defaultUI .toastui-editor-md-container,
-      #topicModal .toastui-editor-defaultUI .toastui-editor-ww-container {
-        background: var(--surface) !important;
+      .md-toolbar button {
+        min-width: 30px;
+        padding: 5px 9px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-muted);
+        font-family: inherit;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1;
+        cursor: pointer;
+        border-radius: 6px;
+        transition: all 0.15s;
       }
-      #topicModal .toastui-editor-contents {
-        background: var(--surface) !important;
-        color: var(--text) !important;
-        font-family: inherit !important;
+      .md-toolbar button:hover {
+        border-color: var(--accent);
+        color: var(--accent);
+        background: var(--surface2);
       }
-      #topicModal .toastui-editor-contents p,
-      #topicModal .toastui-editor-contents li,
-      #topicModal .toastui-editor-contents h1,
-      #topicModal .toastui-editor-contents h2,
-      #topicModal .toastui-editor-contents h3,
-      #topicModal .toastui-editor-contents h4,
-      #topicModal .toastui-editor-contents h5,
-      #topicModal .toastui-editor-contents h6 {
-        color: var(--text) !important;
+      .md-toolbar #mdPreviewBtn {
+        font-size: 11px;
+        padding: 5px 10px;
       }
-      #topicModal .toastui-editor-contents a {
-        color: var(--accent) !important;
+      [data-theme="dark"] .md-toolbar button {
+        background: var(--surface2);
       }
-      #topicModal .toastui-editor-contents pre {
-        background: #0d1117 !important;
-        color: #c9d1d9 !important;
-        border: 1px solid #30363d !important;
-        border-radius: 6px !important;
-        padding: 10px 12px !important;
-        font-family: "JetBrains Mono", monospace !important;
-        font-size: 12px !important;
+      [data-theme="dark"] .md-toolbar button:hover {
+        background: #1a1c2e;
       }
-      #topicModal .toastui-editor-contents pre code {
-        background: transparent !important;
-        color: inherit !important;
-        font-family: inherit !important;
+      .md-preview {
+        min-height: 200px;
+        padding: 12px 14px;
+        border: 1.5px solid var(--border);
+        border-radius: var(--rsm);
+        background: var(--surface2);
+        color: var(--text);
+        max-height: 360px;
+        overflow-y: auto;
       }
-      #topicModal .toastui-editor-contents :not(pre) > code {
-        background: var(--surface2) !important;
-        color: var(--text) !important;
-        font-family: "JetBrains Mono", monospace !important;
-        padding: 1px 5px !important;
-        border-radius: 4px !important;
-      }
-      #topicModal .toastui-editor-toolbar-icons {
-        filter: var(--toolbar-icon-filter, none);
-      }
-      [data-theme="dark"] #topicModal .toastui-editor-toolbar-icons {
-        filter: invert(0.85);
-      }
-      #topicModal .toastui-editor-mode-switch,
-      #topicModal .toastui-editor-md-tab-container,
-      #topicModal .toastui-editor-md-preview-style-vertical,
-      #topicModal .toastui-editor-md-preview-style-tab,
-      #topicModal .toastui-editor-md-tab-container .tab-item,
-      #topicModal .toastui-editor-mode-switch .tab-item {
-        background: var(--surface2) !important;
-        color: var(--text-muted) !important;
-        border-color: var(--border) !important;
-      }
-      #topicModal .toastui-editor-mode-switch .tab-item.active {
-        color: var(--accent) !important;
+      .md-preview:empty::before {
+        content: "(empty)";
+        color: var(--text-light);
+        font-style: italic;
       }
       .empty {
         text-align: center;
@@ -1236,7 +1224,22 @@
         </div>
         <div class="field">
           <label>Description (optional)</label>
-          <div id="topicDescTui"></div>
+          <div class="md-toolbar" id="mdToolbar">
+            <button type="button" onclick="mdWrap('**','**')" title="Bold"><b>B</b></button>
+            <button type="button" onclick="mdWrap('*','*')" title="Italic"><i>I</i></button>
+            <button type="button" onclick="mdWrap('`','`')" title="Inline code">&lt;/&gt;</button>
+            <button type="button" onclick="mdCodeBlock()" title="Code block">{ }</button>
+            <button type="button" onclick="mdLink()" title="Link">🔗</button>
+            <button type="button" onclick="mdLinePrefix('- ')" title="Bullet list">•</button>
+            <span style="flex:1"></span>
+            <button type="button" id="mdPreviewBtn" onclick="mdTogglePreview()" title="Toggle preview">👁 Preview</button>
+          </div>
+          <textarea
+            id="topicDescInp"
+            rows="9"
+            placeholder="Paste code or notes — multi-line pastes auto-wrap as ``` blocks. Press 👁 Preview to render."
+          ></textarea>
+          <div id="topicDescPreview" class="md-preview topic-desc" style="display:none"></div>
         </div>
         <div
           id="schedPreviewWrap"
@@ -1652,6 +1655,13 @@
           title.textContent = "Add New Topic";
           submit.textContent = "+ Add Topic";
         }
+        // Always reopen in Edit mode (not Preview).
+        const pv = document.getElementById("topicDescPreview");
+        const pvBtn = document.getElementById("mdPreviewBtn");
+        const ta = document.getElementById("topicDescInp");
+        if (pv) pv.style.display = "none";
+        if (ta) ta.style.display = "";
+        if (pvBtn) pvBtn.innerHTML = "👁 Preview";
         renderSchedPreview();
       }
 
@@ -1779,50 +1789,143 @@
         }
       }
 
-      /* ── Toast UI Editor for the description field ─────────────────────
-         Lazy-init on first modal open. Mounts on #topicDescTui in WYSIWYG
-         mode, stores content as markdown internally — which matches our
-         existing `description` storage format, so legacy descriptions load
-         in directly and new descriptions save back as plain markdown text. */
+      /* ── Markdown editor toolbar + smart paste ─────────────────────────
+         The description field is a plain <textarea>. The toolbar buttons
+         mutate its value around the current selection. A Preview button
+         toggles between source and rendered HTML. The smart-paste handler
+         auto-wraps multi-line text in ``` fences (the Slack-paste shortcut). */
 
-      let descEditor = null;
-
-      function initDescEditor() {
-        if (descEditor) return descEditor;
-        const TuiEditor =
-          (window.toastui && window.toastui.Editor) || window.Editor;
-        if (!TuiEditor) return null;
-        descEditor = new TuiEditor({
-          el: document.querySelector("#topicDescTui"),
-          height: "320px",
-          initialEditType: "wysiwyg",
-          previewStyle: "tab",
-          usageStatistics: false,
-          placeholder: "Paste code, write notes, or drop a link…",
-          toolbarItems: [
-            ["heading", "bold", "italic", "strike"],
-            ["hr", "quote"],
-            ["ul", "ol"],
-            ["code", "codeblock"],
-            ["link"],
-          ],
-        });
-        return descEditor;
+      function _descTa() {
+        return document.getElementById("topicDescInp");
       }
 
-      // Load existing markdown into the editor. Empty string clears it.
+      // Load + persist helpers used by renderTopicModal / submitTopic.
       function setDescContent(value) {
-        const ed = initDescEditor();
-        if (!ed) return;
-        ed.setMarkdown(value || "", false);
+        _descTa().value = value || "";
+      }
+      function getDescContent() {
+        return _descTa().value.trim();
       }
 
-      // Read out the current description as markdown text.
-      function getDescContent() {
-        const ed = initDescEditor();
-        if (!ed) return "";
-        const md = ed.getMarkdown().trim();
-        return md;
+      function mdWrap(before, after) {
+        const ta = _descTa();
+        const s = ta.selectionStart;
+        const e = ta.selectionEnd;
+        const sel = ta.value.slice(s, e);
+        ta.value =
+          ta.value.slice(0, s) + before + sel + after + ta.value.slice(e);
+        ta.focus();
+        if (sel) {
+          ta.selectionStart = s + before.length;
+          ta.selectionEnd = e + before.length;
+        } else {
+          ta.selectionStart = ta.selectionEnd = s + before.length;
+        }
+      }
+
+      function mdCodeBlock() {
+        const ta = _descTa();
+        const s = ta.selectionStart;
+        const e = ta.selectionEnd;
+        const sel = ta.value.slice(s, e);
+        const before = s > 0 && ta.value[s - 1] !== "\n" ? "\n" : "";
+        const after = e < ta.value.length && ta.value[e] !== "\n" ? "\n" : "";
+        if (sel) {
+          const body = sel.endsWith("\n") ? sel.slice(0, -1) : sel;
+          const insertion = before + "```\n" + body + "\n```\n" + after;
+          ta.value = ta.value.slice(0, s) + insertion + ta.value.slice(e);
+          ta.focus();
+          const bodyStart = s + before.length + 4;
+          ta.selectionStart = bodyStart;
+          ta.selectionEnd = bodyStart + body.length;
+        } else {
+          const insertion = before + "```\n\n```\n" + after;
+          ta.value = ta.value.slice(0, s) + insertion + ta.value.slice(s);
+          ta.focus();
+          const cursorPos = s + before.length + 4;
+          ta.selectionStart = ta.selectionEnd = cursorPos;
+        }
+      }
+
+      function mdLink() {
+        const ta = _descTa();
+        const s = ta.selectionStart;
+        const e = ta.selectionEnd;
+        const sel = ta.value.slice(s, e) || "link text";
+        const insertion = `[${sel}](url)`;
+        ta.value = ta.value.slice(0, s) + insertion + ta.value.slice(e);
+        ta.focus();
+        const urlStart = s + sel.length + 3;
+        ta.selectionStart = urlStart;
+        ta.selectionEnd = urlStart + 3;
+      }
+
+      function mdLinePrefix(prefix) {
+        const ta = _descTa();
+        const s = ta.selectionStart;
+        const e = ta.selectionEnd;
+        const lineStart = ta.value.lastIndexOf("\n", s - 1) + 1;
+        const lineEnd =
+          ta.value.indexOf("\n", e) === -1
+            ? ta.value.length
+            : ta.value.indexOf("\n", e);
+        const lines = ta.value.slice(lineStart, lineEnd).split("\n");
+        const prefixed = lines.map((l) => prefix + l).join("\n");
+        ta.value =
+          ta.value.slice(0, lineStart) + prefixed + ta.value.slice(lineEnd);
+        ta.focus();
+        ta.selectionStart = lineStart;
+        ta.selectionEnd = lineStart + prefixed.length;
+      }
+
+      function mdTogglePreview() {
+        const ta = _descTa();
+        const pv = document.getElementById("topicDescPreview");
+        const btn = document.getElementById("mdPreviewBtn");
+        const inEdit = pv.style.display === "none";
+        if (inEdit) {
+          pv.innerHTML = "";
+          renderDescription(pv, ta.value);
+          pv.style.display = "";
+          ta.style.display = "none";
+          btn.innerHTML = "✏️ Edit";
+        } else {
+          pv.style.display = "none";
+          ta.style.display = "";
+          btn.innerHTML = "👁 Preview";
+          ta.focus();
+        }
+      }
+
+      // Smart paste: when the user pastes multi-line plain text into the
+      // description (and isn't already inside a fenced block), wrap it in
+      // ``` so it renders as a code block. This is the closest practical
+      // equivalent to Slack's "paste turns into a code block" UX.
+      function smartPasteDescription(e) {
+        const cd = e.clipboardData || window.clipboardData;
+        if (!cd) return;
+        const text = cd.getData("text/plain");
+        if (!text || !text.includes("\n")) return; // single-line — let it paste normally
+        e.preventDefault();
+        const ta = e.target;
+        const before = ta.value.slice(0, ta.selectionStart);
+        const after = ta.value.slice(ta.selectionEnd);
+        // Don't double-wrap: if the cursor is already inside a fenced block,
+        // count unclosed fences before the cursor.
+        const openFences =
+          (before.match(/^```/gm) || []).length +
+          (before.match(/\n```/g) || []).length;
+        const insideFence = openFences % 2 === 1;
+        const block = insideFence
+          ? text
+          : (before.endsWith("\n") || before === "" ? "" : "\n") +
+            "```\n" +
+            text.replace(/\n+$/, "") +
+            "\n```\n";
+        ta.value = before + block + after;
+        const newCursor = before.length + block.length;
+        ta.selectionStart = ta.selectionEnd = newCursor;
+        ta.dispatchEvent(new Event("input", { bubbles: true }));
       }
 
       function markDone(id) {
@@ -2350,6 +2453,20 @@
           .addEventListener("keydown", (e) => {
             if (e.key === "Enter") submitTopic();
           });
+        // Description textarea: smart paste (auto-wrap multi-line as ```)
+        // and Tab → 2 spaces (so users can indent code lines naturally).
+        const _descInp = document.getElementById("topicDescInp");
+        _descInp.addEventListener("paste", smartPasteDescription);
+        _descInp.addEventListener("keydown", (e) => {
+          if (e.key === "Tab") {
+            e.preventDefault();
+            const ta = e.target;
+            const s = ta.selectionStart;
+            const en = ta.selectionEnd;
+            ta.value = ta.value.slice(0, s) + "  " + ta.value.slice(en);
+            ta.selectionStart = ta.selectionEnd = s + 2;
+          }
+        });
         document
           .getElementById("newSubjInp")
           .addEventListener("keydown", (e) => {
