@@ -410,7 +410,7 @@
       .topic-card {
         display: grid;
         grid-template-columns: auto 1fr auto;
-        align-items: center;
+        align-items: start;
         gap: 11px;
         padding: 12px 13px;
         border-radius: 10px;
@@ -587,8 +587,32 @@
       }
       [data-theme="dark"] .btn-edit { background: var(--surface2); }
       [data-theme="dark"] .btn-edit:hover { background: #1a1c2e; }
-      .topic-desc {
+      .topic-desc-wrap {
         margin-top: 8px;
+      }
+      .topic-desc-wrap > summary {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        color: var(--text-light);
+        cursor: pointer;
+        list-style: none;
+        user-select: none;
+        padding: 2px 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .topic-desc-wrap > summary::-webkit-details-marker { display: none; }
+      .topic-desc-wrap > summary::before {
+        content: "▸";
+        display: inline-block;
+        transition: transform 0.15s ease;
+        font-size: 10px;
+      }
+      .topic-desc-wrap[open] > summary::before { transform: rotate(90deg); }
+      .topic-desc-wrap > summary:hover { color: var(--text); }
+      .topic-desc {
+        margin-top: 4px;
         font-size: 12px;
         color: var(--text-muted);
         line-height: 1.5;
@@ -2032,10 +2056,16 @@
         info.appendChild(dots);
 
         if (t.description && t.description.trim()) {
+          const wrap = document.createElement("details");
+          wrap.className = "topic-desc-wrap";
+          const sum = document.createElement("summary");
+          sum.textContent = "Description";
+          wrap.appendChild(sum);
           const desc = document.createElement("div");
           desc.className = "topic-desc";
           renderDescription(desc, t.description);
-          info.appendChild(desc);
+          wrap.appendChild(desc);
+          info.appendChild(wrap);
         }
 
         const acts = document.createElement("div");
