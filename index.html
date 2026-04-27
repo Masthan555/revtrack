@@ -1305,7 +1305,7 @@
       <div class="modal">
         <div class="modal-header">
           <span class="modal-title" id="topicModalTitle">Add New Topic</span>
-          <button class="modal-close" onclick="closeModal('topicModal')">
+          <button class="modal-close" onclick="tryCloseTopicModal()">
             ×
           </button>
         </div>
@@ -1586,16 +1586,61 @@
       function closeModal(id) {
         document.getElementById(id).classList.remove("open");
       }
+      // Snapshot of the topic-modal form when it was opened. Used to detect
+      // unsaved edits so Esc / backdrop / × can confirm before discarding.
+      let topicModalSnapshot = null;
+      function snapshotTopicModal() {
+        topicModalSnapshot = {
+          subject: document.getElementById("topicSubjSel").value || "",
+          name: document.getElementById("topicNameInp").value || "",
+          description: getDescContent() || "",
+          intervals: document.getElementById("topicIntervalsInp").value || "",
+          recurring: document.getElementById("topicRecurringInp").checked,
+        };
+      }
+      function isTopicModalDirty() {
+        if (!topicModalSnapshot) return false;
+        const s = topicModalSnapshot;
+        return (
+          (document.getElementById("topicSubjSel").value || "") !== s.subject ||
+          (document.getElementById("topicNameInp").value || "") !== s.name ||
+          (getDescContent() || "") !== s.description ||
+          (document.getElementById("topicIntervalsInp").value || "") !==
+            s.intervals ||
+          document.getElementById("topicRecurringInp").checked !== s.recurring
+        );
+      }
+      function tryCloseTopicModal() {
+        if (
+          isTopicModalDirty() &&
+          !confirm("Discard your changes? Unsaved edits will be lost.")
+        )
+          return false;
+        closeModal("topicModal");
+        topicModalSnapshot = null;
+        return true;
+      }
       document.querySelectorAll(".modal-backdrop").forEach((el) => {
         el.addEventListener("click", (e) => {
-          if (e.target === el) el.classList.remove("open");
+          if (e.target !== el) return;
+          if (el.id === "topicModal") {
+            tryCloseTopicModal();
+          } else {
+            el.classList.remove("open");
+          }
         });
       });
       document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape")
-          document
-            .querySelectorAll(".modal-backdrop.open")
-            .forEach((el) => el.classList.remove("open"));
+        if (e.key !== "Escape") return;
+        document
+          .querySelectorAll(".modal-backdrop.open")
+          .forEach((el) => {
+            if (el.id === "topicModal") {
+              tryCloseTopicModal();
+            } else {
+              el.classList.remove("open");
+            }
+          });
       });
 
       /* ── Section toggle ── */
@@ -1776,6 +1821,7 @@
         if (ta) ta.style.display = "";
         if (pvBtn) pvBtn.innerHTML = "👁 Preview";
         renderSchedPreview();
+        snapshotTopicModal();
       }
 
       function submitTopic() {
@@ -1802,6 +1848,7 @@
           topic.intervals = intervals;
           topic.recurring = recurring;
           saveT(topics);
+          topicModalSnapshot = null;
           closeModal("topicModal");
           editingTopicId = null;
           toast("✓", "Saved");
@@ -1832,6 +1879,7 @@
           recurring,
         });
         saveT(topics);
+        topicModalSnapshot = null;
         closeModal("topicModal");
         toast("🚀", `"${name}" added!`);
         render();
@@ -2351,7 +2399,12 @@
         document.getElementById("todayCnt").textContent = todayItems.length;
         const todayEl = document.getElementById("todayList");
         if (todayItems.length === 0) {
-          todayEl.innerHTML = `<div class="empty"><div class="eicon">${searchQuery ? "🔍" : "✨"}</div><p>${searchQuery ? `No matches for "${searchQuery}"` : `Nothing due today${activeFilter !== "ALL" ? " for " + activeFilter : ""}!`}</p></div>`;
+          if (searchQuery) {
+            todayEl.innerHTML = `<div class="empty"><div class="eicon">🔍</div><p>No matches for "<span></span>"</p></div>`;
+            todayEl.querySelector("span").textContent = searchQuery;
+          } else {
+            todayEl.innerHTML = `<div class="empty"><div class="eicon">✨</div><p>Nothing due today${activeFilter !== "ALL" ? " for " + activeFilter : ""}!</p></div>`;
+          }
         } else {
           todayEl.innerHTML = "";
           todayItems.forEach((t) => todayEl.appendChild(makeCard(t)));
@@ -2366,7 +2419,12 @@
         document.getElementById("allCnt").textContent = allItems.length;
         const allEl = document.getElementById("allList");
         if (allItems.length === 0) {
-          allEl.innerHTML = `<div class="empty"><div class="eicon">${searchQuery ? "🔍" : "📚"}</div><p>${searchQuery ? `No topics match "${searchQuery}"` : `No topics yet — click <strong>+ Add Topic</strong> above!`}</p></div>`;
+          if (searchQuery) {
+            allEl.innerHTML = `<div class="empty"><div class="eicon">🔍</div><p>No topics match "<span></span>"</p></div>`;
+            allEl.querySelector("span").textContent = searchQuery;
+          } else {
+            allEl.innerHTML = `<div class="empty"><div class="eicon">📚</div><p>No topics yet — click <strong>+ Add Topic</strong> above!</p></div>`;
+          }
         } else {
           allEl.innerHTML = "";
           allItems.forEach((t) => allEl.appendChild(makeCard(t)));
