@@ -267,8 +267,62 @@
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
-        margin-bottom: 20px;
+        margin-bottom: 12px;
         align-items: center;
+      }
+
+      /* ── Search bar ── */
+      .search-row {
+        position: relative;
+        margin-bottom: 20px;
+      }
+      .search-row .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 13px;
+        opacity: 0.6;
+        pointer-events: none;
+      }
+      .search-input {
+        width: 100%;
+        border: 1.5px solid var(--border);
+        border-radius: var(--rsm);
+        padding: 9px 36px 9px 36px;
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-size: 13px;
+        color: var(--text);
+        background: var(--surface);
+        outline: none;
+        transition: border-color 0.15s, background 0.15s;
+      }
+      .search-input:focus {
+        border-color: var(--accent);
+        background: var(--surface2);
+      }
+      .search-input::placeholder { color: var(--text-light); }
+      .search-clear {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 22px;
+        height: 22px;
+        border-radius: 5px;
+        border: none;
+        background: transparent;
+        color: var(--text-light);
+        cursor: pointer;
+        font-size: 16px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .search-clear:hover {
+        background: var(--surface2);
+        color: var(--text);
       }
       .subj-chip {
         display: inline-flex;
@@ -1189,6 +1243,27 @@
       <!-- Subject filter chips -->
       <div class="subj-filter-row" id="subjFilterRow"></div>
 
+      <!-- Search bar -->
+      <div class="search-row">
+        <span class="search-icon">🔍</span>
+        <input
+          type="text"
+          id="searchInp"
+          class="search-input"
+          placeholder="Search topics by name…"
+          autocomplete="off"
+          oninput="onSearchInput(this.value)"
+        />
+        <button
+          type="button"
+          class="search-clear"
+          id="searchClear"
+          title="Clear"
+          onclick="clearSearch()"
+          style="display:none"
+        >×</button>
+      </div>
+
       <!-- Due Today section -->
       <div class="section-card">
         <div
@@ -1487,6 +1562,20 @@
       /* ── State ── */
       let selPal = 0;
       let activeFilter = "ALL";
+      let searchQuery = "";
+      function onSearchInput(v) {
+        searchQuery = v.trim().toLowerCase();
+        document.getElementById("searchClear").style.display = searchQuery
+          ? "flex"
+          : "none";
+        render();
+      }
+      function clearSearch() {
+        const inp = document.getElementById("searchInp");
+        inp.value = "";
+        onSearchInput("");
+        inp.focus();
+      }
 
       /* ── Modal ── */
       function openModal(id) {
@@ -2237,10 +2326,15 @@
         filterRow.appendChild(manageBtn);
 
         // Filter topics
-        const filtered =
+        let filtered =
           activeFilter === "ALL"
             ? topics
             : topics.filter((t) => t.subject === activeFilter);
+        if (searchQuery) {
+          filtered = filtered.filter((t) =>
+            t.name.toLowerCase().includes(searchQuery),
+          );
+        }
 
         // Due today
         const todayItems = filtered
@@ -2257,7 +2351,7 @@
         document.getElementById("todayCnt").textContent = todayItems.length;
         const todayEl = document.getElementById("todayList");
         if (todayItems.length === 0) {
-          todayEl.innerHTML = `<div class="empty"><div class="eicon">✨</div><p>Nothing due today${activeFilter !== "ALL" ? " for " + activeFilter : ""}!</p></div>`;
+          todayEl.innerHTML = `<div class="empty"><div class="eicon">${searchQuery ? "🔍" : "✨"}</div><p>${searchQuery ? `No matches for "${searchQuery}"` : `Nothing due today${activeFilter !== "ALL" ? " for " + activeFilter : ""}!`}</p></div>`;
         } else {
           todayEl.innerHTML = "";
           todayItems.forEach((t) => todayEl.appendChild(makeCard(t)));
@@ -2272,7 +2366,7 @@
         document.getElementById("allCnt").textContent = allItems.length;
         const allEl = document.getElementById("allList");
         if (allItems.length === 0) {
-          allEl.innerHTML = `<div class="empty"><div class="eicon">📚</div><p>No topics yet — click <strong>+ Add Topic</strong> above!</p></div>`;
+          allEl.innerHTML = `<div class="empty"><div class="eicon">${searchQuery ? "🔍" : "📚"}</div><p>${searchQuery ? `No topics match "${searchQuery}"` : `No topics yet — click <strong>+ Add Topic</strong> above!`}</p></div>`;
         } else {
           allEl.innerHTML = "";
           allItems.forEach((t) => allEl.appendChild(makeCard(t)));
