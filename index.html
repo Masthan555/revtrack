@@ -339,59 +339,6 @@
       }
       .tag-pill-x:hover { opacity: 1; background: rgba(0, 0, 0, 0.08); }
 
-      /* ── Tag filter row ── */
-      .tag-filter-row {
-        display: flex;
-        gap: 6px;
-        flex-wrap: wrap;
-        align-items: center;
-        margin-bottom: 12px;
-      }
-      .tag-filter-row:empty { display: none; }
-      .tag-filter-row .tchip,
-      .tag-filter-row .tchip-clear {
-        font-family: "JetBrains Mono", monospace;
-        font-size: 11px;
-        padding: 4px 9px;
-        border-radius: 14px;
-        border: 1px solid var(--border);
-        background: var(--surface);
-        color: var(--text-muted);
-        cursor: pointer;
-        transition: all 0.12s;
-        display: inline-flex;
-        align-items: center;
-        gap: 5px;
-        line-height: 1.2;
-      }
-      .tag-filter-row .tchip:hover {
-        border-color: var(--accent);
-        color: var(--text);
-      }
-      .tag-filter-row .tchip.active {
-        background: #fff7ed;
-        border-color: #fed7aa;
-        color: #c2410c;
-        font-weight: 600;
-      }
-      [data-theme="dark"] .tag-filter-row .tchip.active {
-        background: rgba(249, 115, 22, 0.15);
-        border-color: rgba(249, 115, 22, 0.5);
-        color: #fdba74;
-      }
-      .tag-filter-row .tchip-cnt {
-        opacity: 0.6;
-        font-size: 10px;
-      }
-      .tag-filter-row .tchip-clear {
-        color: var(--text-light);
-        border-style: dashed;
-      }
-      .tag-filter-row .tchip-clear:hover {
-        color: var(--danger);
-        border-color: var(--danger);
-      }
-
       /* ── Per-card tag chips ── */
       .tag-row {
         display: flex;
@@ -478,6 +425,51 @@
       .search-clear:hover {
         background: var(--surface2);
         color: var(--text);
+      }
+      /* Tag autocomplete dropdown anchored below the search input. */
+      .tag-ac {
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: calc(100% + 4px);
+        background: var(--surface);
+        border: 1.5px solid var(--border);
+        border-radius: var(--rsm);
+        box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+        z-index: 50;
+        max-height: 280px;
+        overflow-y: auto;
+        padding: 4px;
+      }
+      .tag-ac-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 7px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+      .tag-ac-row:hover { background: var(--surface2); color: var(--text); }
+      .tag-ac-row.active {
+        background: #fff7ed;
+        color: #c2410c;
+      }
+      [data-theme="dark"] .tag-ac-row.active {
+        background: rgba(249, 115, 22, 0.15);
+        color: #fdba74;
+      }
+      .tag-ac-name b {
+        color: var(--text);
+        font-weight: 700;
+      }
+      .tag-ac-row.active .tag-ac-name b { color: inherit; }
+      .tag-ac-cnt {
+        font-size: 10px;
+        opacity: 0.6;
       }
       .subj-chip {
         display: inline-flex;
@@ -1028,6 +1020,8 @@
         box-shadow: var(--shadow-lg);
         width: 100%;
         max-width: 420px;
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
         padding: 28px;
         transform: translateY(16px) scale(0.97);
         transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
@@ -1398,9 +1392,6 @@
       <!-- Subject filter chips -->
       <div class="subj-filter-row" id="subjFilterRow"></div>
 
-      <!-- Tag filter chips -->
-      <div class="tag-filter-row" id="tagFilterRow"></div>
-
       <!-- Search bar -->
       <div class="search-row">
         <span class="search-icon">🔍</span>
@@ -1408,9 +1399,15 @@
           type="text"
           id="searchInp"
           class="search-input"
-          placeholder="Search topics by name…"
+          placeholder="Search by name, or #tag (e.g. #math #array)"
           autocomplete="off"
+          autocapitalize="none"
+          spellcheck="false"
           oninput="onSearchInput(this.value)"
+          onkeydown="onSearchKeydown(event)"
+          onclick="renderTagAutocomplete()"
+          onkeyup="renderTagAutocomplete()"
+          onblur="setTimeout(hideTagAutocomplete, 150)"
         />
         <button
           type="button"
@@ -1420,6 +1417,7 @@
           onclick="clearSearch()"
           style="display:none"
         >×</button>
+        <div class="tag-ac" id="tagAc" style="display:none"></div>
       </div>
 
       <!-- Due Today section -->
@@ -1742,32 +1740,203 @@
       /* ── State ── */
       let selPal = 0;
       let activeFilter = "ALL";
-      // Set of currently-selected tag names. Filter is OR-mode: a topic
-      // matches if it has at least one of the selected tags.
-      let activeTags = new Set();
-      function toggleTagFilter(tag) {
-        if (activeTags.has(tag)) activeTags.delete(tag);
-        else activeTags.add(tag);
-        render();
-      }
-      function clearTagFilters() {
-        if (!activeTags.size) return;
-        activeTags.clear();
-        render();
-      }
       let searchQuery = "";
+      // Parse the search query into a name-text part and a tag-list part.
+      // Whitespace-separated tokens starting with "#" become OR-mode tag
+      // filters; the rest is concatenated as the name substring filter.
+      // Examples: "#math array"     → { tags: ["math"], text: "array" }
+      //           "#math #graph"    → { tags: ["math","graph"], text: "" }
+      //           "binary search"   → { tags: [], text: "binary search" }
+      function parseSearch(q) {
+        const tokens = String(q || "").trim().split(/\s+/).filter(Boolean);
+        const tags = [];
+        const textParts = [];
+        for (const tok of tokens) {
+          if (tok.startsWith("#") && tok.length > 1) {
+            const t = tok.slice(1).toLowerCase();
+            if (t && !tags.includes(t)) tags.push(t);
+          } else {
+            textParts.push(tok);
+          }
+        }
+        return { tags, text: textParts.join(" ").toLowerCase() };
+      }
       function onSearchInput(v) {
-        searchQuery = v.trim().toLowerCase();
-        document.getElementById("searchClear").style.display = searchQuery
+        searchQuery = v;
+        document.getElementById("searchClear").style.display = v.trim()
           ? "flex"
           : "none";
+        renderTagAutocomplete();
         render();
       }
       function clearSearch() {
         const inp = document.getElementById("searchInp");
         inp.value = "";
         onSearchInput("");
+        hideTagAutocomplete();
         inp.focus();
+      }
+      // ── Tag autocomplete in the search bar ────────────────────────────
+      // When the cursor sits on a "#…" token in the search input, show a
+      // small dropdown of existing tags whose names match the partial. Up
+      // to 8 entries, ranked by usage count then alpha. Keyboard-driven:
+      // ArrowUp/Down to move highlight, Enter/Tab to insert, Esc to close.
+      let tagAcItems = [];
+      let tagAcIndex = -1;
+
+      // Compute {start, end, token} for the whitespace-delimited word at
+      // the current cursor position in the search input. Returns null if
+      // the word doesn't start with "#".
+      function getActiveHashToken() {
+        const inp = document.getElementById("searchInp");
+        if (!inp || document.activeElement !== inp) return null;
+        const v = inp.value;
+        const pos = inp.selectionStart ?? v.length;
+        let start = pos;
+        while (start > 0 && !/\s/.test(v[start - 1])) start--;
+        let end = pos;
+        while (end < v.length && !/\s/.test(v[end])) end++;
+        const token = v.slice(start, end);
+        if (!token.startsWith("#")) return null;
+        return { token, start, end };
+      }
+
+      function getAllTagCounts() {
+        const counts = new Map();
+        loadT().forEach((t) => {
+          if (!Array.isArray(t.tags)) return;
+          t.tags.forEach((tg) =>
+            counts.set(tg, (counts.get(tg) || 0) + 1),
+          );
+        });
+        return counts;
+      }
+
+      function hideTagAutocomplete() {
+        const el = document.getElementById("tagAc");
+        if (el) el.style.display = "none";
+        tagAcItems = [];
+        tagAcIndex = -1;
+      }
+
+      function renderTagAutocomplete() {
+        const ac = document.getElementById("tagAc");
+        if (!ac) return;
+        const ctx = getActiveHashToken();
+        if (!ctx) return hideTagAutocomplete();
+        const partial = ctx.token.slice(1).toLowerCase();
+        const alreadyInQuery = parseSearch(
+          document.getElementById("searchInp").value,
+        ).tags;
+        const counts = getAllTagCounts();
+        // Exclude tags already present elsewhere in the query (so they
+        // don't appear duplicated when the user is mid-typing a new one),
+        // but keep the current token's tag if it exactly matches an
+        // existing one — let the user see the match.
+        const matches = [...counts.entries()]
+          .filter(([tg]) => tg.startsWith(partial))
+          .filter(([tg]) => !alreadyInQuery.includes(tg) || tg === partial)
+          .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+          .slice(0, 8);
+        if (matches.length === 0) return hideTagAutocomplete();
+        tagAcItems = matches.map(([tg]) => tg);
+        if (tagAcIndex < 0 || tagAcIndex >= tagAcItems.length)
+          tagAcIndex = 0;
+        ac.innerHTML = "";
+        matches.forEach(([tg, n], i) => {
+          const row = document.createElement("div");
+          row.className = "tag-ac-row" + (i === tagAcIndex ? " active" : "");
+          const name = document.createElement("span");
+          name.className = "tag-ac-name";
+          // Highlight the matched prefix.
+          if (partial && tg.startsWith(partial)) {
+            const b = document.createElement("b");
+            b.textContent = "#" + partial;
+            name.appendChild(b);
+            name.appendChild(
+              document.createTextNode(tg.slice(partial.length)),
+            );
+          } else {
+            name.textContent = "#" + tg;
+          }
+          const cnt = document.createElement("span");
+          cnt.className = "tag-ac-cnt";
+          cnt.textContent = String(n);
+          row.appendChild(name);
+          row.appendChild(cnt);
+          // mousedown fires before blur, so the click reaches us before
+          // the input's onblur tears down the dropdown.
+          row.addEventListener("mousedown", (e) => {
+            e.preventDefault();
+            insertTagFromAutocomplete(tg);
+          });
+          ac.appendChild(row);
+        });
+        ac.style.display = "";
+      }
+
+      // Replace the active "#…" token in the search input with "#<tag>"
+      // and a trailing space, then re-run filter + autocomplete.
+      function insertTagFromAutocomplete(tag) {
+        const inp = document.getElementById("searchInp");
+        const ctx = getActiveHashToken();
+        if (!ctx) return;
+        const v = inp.value;
+        const before = v.slice(0, ctx.start);
+        const after = v.slice(ctx.end);
+        const insertion = "#" + tag;
+        // Add a trailing space so the user can keep typing more #tags.
+        const tail = after.startsWith(" ") || after === "" ? after : " " + after;
+        const newVal = before + insertion + (after === "" ? " " : tail);
+        inp.value = newVal;
+        const caret = (before + insertion + " ").length;
+        inp.setSelectionRange(caret, caret);
+        inp.focus();
+        onSearchInput(newVal);
+        hideTagAutocomplete();
+      }
+
+      function onSearchKeydown(e) {
+        const ac = document.getElementById("tagAc");
+        const acOpen = ac && ac.style.display !== "none" && tagAcItems.length;
+        if (e.key === "Escape") {
+          if (acOpen) {
+            e.preventDefault();
+            hideTagAutocomplete();
+          }
+          return;
+        }
+        if (!acOpen) return;
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          tagAcIndex = (tagAcIndex + 1) % tagAcItems.length;
+          renderTagAutocomplete();
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          tagAcIndex =
+            (tagAcIndex - 1 + tagAcItems.length) % tagAcItems.length;
+          renderTagAutocomplete();
+        } else if (e.key === "Enter" || e.key === "Tab") {
+          if (tagAcIndex >= 0 && tagAcIndex < tagAcItems.length) {
+            e.preventDefault();
+            insertTagFromAutocomplete(tagAcItems[tagAcIndex]);
+          }
+        }
+      }
+
+      // Toggle a #tag token in the search bar — used by the per-card tag
+      // chips so clicking one filters by that tag (and clicking again
+      // unfilters). Whitespace-tokenized so partial typed words aren't
+      // disturbed.
+      function toggleTagInSearch(tag) {
+        const inp = document.getElementById("searchInp");
+        const tokens = inp.value.trim().split(/\s+/).filter(Boolean);
+        const target = "#" + tag;
+        const idx = tokens.findIndex((t) => t.toLowerCase() === target);
+        if (idx >= 0) tokens.splice(idx, 1);
+        else tokens.push(target);
+        inp.value = tokens.join(" ");
+        onSearchInput(inp.value);
       }
 
       /* ── Modal ── */
@@ -2477,15 +2646,19 @@
         if (Array.isArray(t.tags) && t.tags.length) {
           const tagRow = document.createElement("div");
           tagRow.className = "tag-row";
+          const activeSearchTags = parseSearch(searchQuery).tags;
           t.tags.forEach((tag) => {
             const chip = document.createElement("button");
             chip.type = "button";
-            chip.className = "tchip" + (activeTags.has(tag) ? " active" : "");
+            const isActive = activeSearchTags.includes(tag);
+            chip.className = "tchip" + (isActive ? " active" : "");
             chip.textContent = "#" + tag;
-            chip.title = `Filter by tag "${tag}"`;
+            chip.title = isActive
+              ? `Remove "#${tag}" filter`
+              : `Filter by "#${tag}"`;
             chip.onclick = (e) => {
               e.stopPropagation();
-              toggleTagFilter(tag);
+              toggleTagInSearch(tag);
             };
             tagRow.appendChild(chip);
           });
@@ -2673,64 +2846,22 @@
         manageBtn.onclick = () => openModal("subjectModal");
         filterRow.appendChild(manageBtn);
 
-        // Tag filter chips — collect all tags across topics, count, and render.
-        // Counts are based on the full topic set so chip widths don't jitter
-        // as the user toggles filters.
-        const tagRow = document.getElementById("tagFilterRow");
-        tagRow.innerHTML = "";
-        const tagCounts = new Map();
-        topics.forEach((t) => {
-          if (!Array.isArray(t.tags)) return;
-          t.tags.forEach((tg) => {
-            tagCounts.set(tg, (tagCounts.get(tg) || 0) + 1);
-          });
-        });
-        // Drop any active tags that no longer exist (e.g. last topic with that
-        // tag was deleted) so the filter doesn't silently hide everything.
-        for (const tg of [...activeTags]) {
-          if (!tagCounts.has(tg)) activeTags.delete(tg);
-        }
-        if (tagCounts.size) {
-          const sorted = [...tagCounts.entries()].sort(
-            (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
-          );
-          sorted.forEach(([tg, n]) => {
-            const chip = document.createElement("button");
-            chip.type = "button";
-            chip.className = "tchip" + (activeTags.has(tg) ? " active" : "");
-            chip.appendChild(document.createTextNode("#" + tg));
-            const cnt = document.createElement("span");
-            cnt.className = "tchip-cnt";
-            cnt.textContent = String(n);
-            chip.appendChild(cnt);
-            chip.onclick = () => toggleTagFilter(tg);
-            tagRow.appendChild(chip);
-          });
-          if (activeTags.size) {
-            const clr = document.createElement("button");
-            clr.type = "button";
-            clr.className = "tchip-clear";
-            clr.textContent = "× clear tags";
-            clr.onclick = () => clearTagFilters();
-            tagRow.appendChild(clr);
-          }
-        }
-
         // Filter topics
         let filtered =
           activeFilter === "ALL"
             ? topics
             : topics.filter((t) => t.subject === activeFilter);
-        if (searchQuery) {
+        const parsed = parseSearch(searchQuery);
+        if (parsed.text) {
           filtered = filtered.filter((t) =>
-            t.name.toLowerCase().includes(searchQuery),
+            t.name.toLowerCase().includes(parsed.text),
           );
         }
-        if (activeTags.size) {
+        if (parsed.tags.length) {
           filtered = filtered.filter(
             (t) =>
               Array.isArray(t.tags) &&
-              t.tags.some((tag) => activeTags.has(tag)),
+              t.tags.some((tag) => parsed.tags.includes(tag)),
           );
         }
 
@@ -2749,9 +2880,9 @@
         document.getElementById("todayCnt").textContent = todayItems.length;
         const todayEl = document.getElementById("todayList");
         if (todayItems.length === 0) {
-          if (searchQuery) {
+          if (searchQuery.trim()) {
             todayEl.innerHTML = `<div class="empty"><div class="eicon">🔍</div><p>No matches for "<span></span>"</p></div>`;
-            todayEl.querySelector("span").textContent = searchQuery;
+            todayEl.querySelector("span").textContent = searchQuery.trim();
           } else {
             todayEl.innerHTML = `<div class="empty"><div class="eicon">✨</div><p>Nothing due today${activeFilter !== "ALL" ? " for " + activeFilter : ""}!</p></div>`;
           }
@@ -2769,9 +2900,9 @@
         document.getElementById("allCnt").textContent = allItems.length;
         const allEl = document.getElementById("allList");
         if (allItems.length === 0) {
-          if (searchQuery) {
+          if (searchQuery.trim()) {
             allEl.innerHTML = `<div class="empty"><div class="eicon">🔍</div><p>No topics match "<span></span>"</p></div>`;
-            allEl.querySelector("span").textContent = searchQuery;
+            allEl.querySelector("span").textContent = searchQuery.trim();
           } else {
             allEl.innerHTML = `<div class="empty"><div class="eicon">📚</div><p>No topics yet — click <strong>+ Add Topic</strong> above!</p></div>`;
           }
