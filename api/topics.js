@@ -9,13 +9,31 @@ function validIntervals(v) {
   );
 }
 
+// Normalize a client-provided tag list: lowercase, trim, drop empties,
+// dedupe, enforce per-tag and total length limits. Returns null on invalid input.
+function normalizeTags(v) {
+  if (v == null) return [];
+  if (!Array.isArray(v)) return null;
+  if (v.length > 16) return null;
+  const seen = new Set();
+  const out = [];
+  for (const raw of v) {
+    if (typeof raw !== 'string') return null;
+    const t = raw.trim().toLowerCase();
+    if (!t) continue;
+    if (t.length > 32) return null;
+    if (!seen.has(t)) { seen.add(t); out.push(t); }
+  }
+  return out;
+}
+
 export default async function handler(req, res) {
   try {
     await ensureSchema();
     const uid = await getSessionUser(req);
 
     if (req.method === 'POST') {
-      const { id, subject, name, addedDate, description, intervals, recurring } = req.body || {};
+      const { id, subject, name, addedDate, description, intervals, recurring, tags } = req.body || {};
       if (!id || !subject || !name || !addedDate) {
         return res.status(400).json({ error: 'id, subject, name, addedDate required' });
       }
@@ -28,10 +46,16 @@ export default async function handler(req, res) {
         ivs = intervals;
       }
       const rec = recurring === true;
+      const normTags = normalizeTags(tags);
+      if (normTags === null) {
+        return res.status(400).json({ error: 'tags must be an array of up to 16 strings, each ≤ 32 chars' });
+      }
+      const tagsParam = normTags.length ? JSON.stringify(normTags) : null;
       await sql`
-        INSERT INTO topics (id, user_id, subject, name, added_date, description, intervals, recurring)
+        INSERT INTO topics (id, user_id, subject, name, added_date, description, intervals, recurring, tags)
         VALUES (${id}, ${uid}, ${subject}, ${name}, ${addedDate}, ${desc},
-                ${ivs === null ? null : JSON.stringify(ivs)}::jsonb, ${rec})
+                ${ivs === null ? null : JSON.stringify(ivs)}::jsonb, ${rec},
+                ${tagsParam}::jsonb)
       `;
       return res.status(200).json({ ok: true });
     }
@@ -44,7 +68,8 @@ export default async function handler(req, res) {
       const hasDesc = typeof body.description === 'string';
       const hasIvs = 'intervals' in body;
       const hasRec = typeof body.recurring === 'boolean';
-      if (!hasName && !hasDesc && !hasIvs && !hasRec) {
+      const hasTags = 'tags' in body;
+      if (!hasName && !hasDesc && !hasIvs && !hasRec && !hasTags) {
         return res.status(400).json({ error: 'at least one editable field required' });
       }
       let newIvs = null;
@@ -57,16 +82,25 @@ export default async function handler(req, res) {
           return res.status(400).json({ error: 'intervals must be an array of positive integers or null' });
         }
       }
+      let newTags = null;
+      if (hasTags) {
+        newTags = normalizeTags(body.tags);
+        if (newTags === null) {
+          return res.status(400).json({ error: 'tags must be an array of up to 16 strings, each ≤ 32 chars' });
+        }
+      }
       const newName = hasName ? body.name.trim() : null;
       const newDesc = hasDesc ? (body.description.trim() ? body.description : null) : null;
       const newRec  = hasRec  ? body.recurring : null;
       const ivsParam = hasIvs && newIvs !== null ? JSON.stringify(newIvs) : null;
+      const tagsParam = hasTags && newTags && newTags.length ? JSON.stringify(newTags) : null;
       const result = await sql`
         UPDATE topics
         SET name        = COALESCE(${newName}, name),
             description = CASE WHEN ${hasDesc} THEN ${newDesc} ELSE description END,
             intervals   = CASE WHEN ${hasIvs}  THEN ${ivsParam}::jsonb ELSE intervals END,
-            recurring   = CASE WHEN ${hasRec}  THEN ${newRec} ELSE recurring END
+            recurring   = CASE WHEN ${hasRec}  THEN ${newRec} ELSE recurring END,
+            tags        = CASE WHEN ${hasTags} THEN ${tagsParam}::jsonb ELSE tags END
         WHERE id = ${id} AND user_id = ${uid}
         RETURNING id
       `;

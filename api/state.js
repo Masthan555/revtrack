@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     const [subjects, topics, revisions] = await Promise.all([
       sql`SELECT name, pi FROM subjects WHERE user_id = ${uid} ORDER BY name`,
       sql`SELECT id, subject, name, added_date::text AS added_date,
-                 description, intervals, recurring
+                 description, intervals, recurring, tags
           FROM topics WHERE user_id = ${uid} ORDER BY added_date`,
       sql`SELECT r.topic_id, r.done_date::text AS done_date
           FROM revisions r
@@ -27,6 +27,7 @@ export default async function handler(req, res) {
       addedDate: r.added_date, description: r.description || '',
       intervals: Array.isArray(r.intervals) ? r.intervals : null,
       recurring: r.recurring === true,
+      tags: Array.isArray(r.tags) ? r.tags : [],
     }));
     const rt_d = {};
     for (const r of revisions) {

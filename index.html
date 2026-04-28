@@ -271,6 +271,93 @@
         align-items: center;
       }
 
+      /* ── Tag filter row ── */
+      .tag-filter-row {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+      .tag-filter-row:empty { display: none; }
+      .tag-filter-row .tchip,
+      .tag-filter-row .tchip-clear {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        padding: 4px 9px;
+        border-radius: 14px;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.12s;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        line-height: 1.2;
+      }
+      .tag-filter-row .tchip:hover {
+        border-color: var(--accent);
+        color: var(--text);
+      }
+      .tag-filter-row .tchip.active {
+        background: #fff7ed;
+        border-color: #fed7aa;
+        color: #c2410c;
+        font-weight: 600;
+      }
+      [data-theme="dark"] .tag-filter-row .tchip.active {
+        background: rgba(249, 115, 22, 0.15);
+        border-color: rgba(249, 115, 22, 0.5);
+        color: #fdba74;
+      }
+      .tag-filter-row .tchip-cnt {
+        opacity: 0.6;
+        font-size: 10px;
+      }
+      .tag-filter-row .tchip-clear {
+        color: var(--text-light);
+        border-style: dashed;
+      }
+      .tag-filter-row .tchip-clear:hover {
+        color: var(--danger);
+        border-color: var(--danger);
+      }
+
+      /* ── Per-card tag chips ── */
+      .tag-row {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+        margin-top: 6px;
+      }
+      .tag-row .tchip {
+        font-family: "JetBrains Mono", monospace;
+        font-size: 10px;
+        padding: 2px 7px;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+        background: var(--surface2);
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.12s;
+        line-height: 1.3;
+      }
+      .tag-row .tchip:hover {
+        border-color: var(--accent);
+        color: var(--text);
+      }
+      .tag-row .tchip.active {
+        background: #fff7ed;
+        border-color: #fed7aa;
+        color: #c2410c;
+      }
+      [data-theme="dark"] .tag-row .tchip.active {
+        background: rgba(249, 115, 22, 0.18);
+        border-color: rgba(249, 115, 22, 0.5);
+        color: #fdba74;
+      }
+
       /* ── Search bar ── */
       .search-row {
         position: relative;
@@ -1243,6 +1330,9 @@
       <!-- Subject filter chips -->
       <div class="subj-filter-row" id="subjFilterRow"></div>
 
+      <!-- Tag filter chips -->
+      <div class="tag-filter-row" id="tagFilterRow"></div>
+
       <!-- Search bar -->
       <div class="search-row">
         <span class="search-icon">🔍</span>
@@ -1339,6 +1429,20 @@
             placeholder="Paste code or notes — multi-line pastes auto-wrap as ``` blocks. Press 👁 Preview to render."
           ></textarea>
           <div id="topicDescPreview" class="md-preview topic-desc" style="display:none"></div>
+        </div>
+        <div class="field">
+          <label>Tags (optional)</label>
+          <input
+            type="text"
+            id="topicTagsInp"
+            placeholder="comma-separated, e.g. leetcode, daily, hard"
+            autocomplete="off"
+            oninput="renderTagsHint()"
+          />
+          <div
+            id="topicTagsHint"
+            style="font-size: 11px; color: var(--text-light); margin-top: 4px; font-family: 'JetBrains Mono', monospace;"
+          ></div>
         </div>
         <div
           id="schedPreviewWrap"
@@ -1562,6 +1666,19 @@
       /* ── State ── */
       let selPal = 0;
       let activeFilter = "ALL";
+      // Set of currently-selected tag names. Filter is OR-mode: a topic
+      // matches if it has at least one of the selected tags.
+      let activeTags = new Set();
+      function toggleTagFilter(tag) {
+        if (activeTags.has(tag)) activeTags.delete(tag);
+        else activeTags.add(tag);
+        render();
+      }
+      function clearTagFilters() {
+        if (!activeTags.size) return;
+        activeTags.clear();
+        render();
+      }
       let searchQuery = "";
       function onSearchInput(v) {
         searchQuery = v.trim().toLowerCase();
@@ -1596,6 +1713,7 @@
           description: getDescContent() || "",
           intervals: document.getElementById("topicIntervalsInp").value || "",
           recurring: document.getElementById("topicRecurringInp").checked,
+          tags: document.getElementById("topicTagsInp").value || "",
         };
       }
       function isTopicModalDirty() {
@@ -1607,7 +1725,8 @@
           (getDescContent() || "") !== s.description ||
           (document.getElementById("topicIntervalsInp").value || "") !==
             s.intervals ||
-          document.getElementById("topicRecurringInp").checked !== s.recurring
+          document.getElementById("topicRecurringInp").checked !== s.recurring ||
+          (document.getElementById("topicTagsInp").value || "") !== s.tags
         );
       }
       function tryCloseTopicModal() {
@@ -1744,6 +1863,24 @@
         openModal("topicModal");
       }
 
+      // Parse the tags input (comma- or space-separated) into a normalized
+      // array: lowercase, trimmed, deduped, ≤16 entries, each ≤32 chars.
+      // Mirrors the server-side validation in api/topics.js.
+      function parseTagsInput(text) {
+        const raw = String(text || "")
+          .split(/[,\n]+/)
+          .map((s) => s.trim().toLowerCase())
+          .filter(Boolean);
+        const seen = new Set();
+        const out = [];
+        for (const t of raw) {
+          if (t.length > 32) continue;
+          if (!seen.has(t)) { seen.add(t); out.push(t); }
+          if (out.length >= 16) break;
+        }
+        return out;
+      }
+
       // Parse comma/space-separated text into an array of positive ints.
       // Returns null if any token isn't a positive integer (0 not allowed).
       function parseIntervalsInput(text) {
@@ -1756,6 +1893,18 @@
           out.push(n);
         }
         return out;
+      }
+
+      // Renders normalized-tag preview chips under the tag input so the user
+      // can see what will actually be saved (after lowercase/trim/dedupe).
+      function renderTagsHint() {
+        const hint = document.getElementById("topicTagsHint");
+        if (!hint) return;
+        const tagsInp = document.getElementById("topicTagsInp");
+        const tags = parseTagsInput(tagsInp.value);
+        hint.textContent = tags.length
+          ? `→ ${tags.join("  ·  ")}`
+          : "";
       }
 
       function renderSchedPreview() {
@@ -1788,6 +1937,7 @@
         const nameInp = document.getElementById("topicNameInp");
         const ivsInp = document.getElementById("topicIntervalsInp");
         const recInp = document.getElementById("topicRecurringInp");
+        const tagsInp = document.getElementById("topicTagsInp");
         const title = document.getElementById("topicModalTitle");
         const submit = document.getElementById("topicSubmitBtn");
 
@@ -1802,6 +1952,7 @@
           setDescContent(editing.description || "");
           ivsInp.value = (topicIntervals(editing)).join(", ");
           recInp.checked = editing.recurring === true;
+          tagsInp.value = (Array.isArray(editing.tags) ? editing.tags : []).join(", ");
           title.textContent = "Edit Topic";
           submit.textContent = "Save Changes";
         } else {
@@ -1810,9 +1961,11 @@
           setDescContent("");
           ivsInp.value = INTERVALS.join(", ");
           recInp.checked = false;
+          tagsInp.value = "";
           title.textContent = "Add New Topic";
           submit.textContent = "+ Add Topic";
         }
+        renderTagsHint();
         // Always reopen in Edit mode (not Preview).
         const pv = document.getElementById("topicDescPreview");
         const pvBtn = document.getElementById("mdPreviewBtn");
@@ -1829,6 +1982,9 @@
         const description = getDescContent();
         const rawIntervals = document.getElementById("topicIntervalsInp").value;
         const recurring = document.getElementById("topicRecurringInp").checked;
+        const tags = parseTagsInput(
+          document.getElementById("topicTagsInp").value,
+        );
         if (!name) return toast("⚠️", "Enter a topic name");
         const intervals = parseIntervalsInput(rawIntervals);
         if (!intervals)
@@ -1847,6 +2003,7 @@
           topic.description = description;
           topic.intervals = intervals;
           topic.recurring = recurring;
+          topic.tags = tags;
           saveT(topics);
           topicModalSnapshot = null;
           closeModal("topicModal");
@@ -1858,6 +2015,7 @@
             description,
             intervals,
             recurring,
+            tags,
           }).catch((e) => console.warn("edit topic failed:", e));
           return;
         }
@@ -1877,6 +2035,7 @@
           description,
           intervals,
           recurring,
+          tags,
         });
         saveT(topics);
         topicModalSnapshot = null;
@@ -1891,6 +2050,7 @@
           description,
           intervals,
           recurring,
+          tags,
         }).catch((e) => console.warn("add topic failed:", e));
       }
 
@@ -2192,6 +2352,24 @@
         info.appendChild(meta);
         info.appendChild(dots);
 
+        if (Array.isArray(t.tags) && t.tags.length) {
+          const tagRow = document.createElement("div");
+          tagRow.className = "tag-row";
+          t.tags.forEach((tag) => {
+            const chip = document.createElement("button");
+            chip.type = "button";
+            chip.className = "tchip" + (activeTags.has(tag) ? " active" : "");
+            chip.textContent = "#" + tag;
+            chip.title = `Filter by tag "${tag}"`;
+            chip.onclick = (e) => {
+              e.stopPropagation();
+              toggleTagFilter(tag);
+            };
+            tagRow.appendChild(chip);
+          });
+          info.appendChild(tagRow);
+        }
+
         if (t.description && t.description.trim()) {
           const wrap = document.createElement("details");
           wrap.className = "topic-desc-wrap";
@@ -2373,6 +2551,49 @@
         manageBtn.onclick = () => openModal("subjectModal");
         filterRow.appendChild(manageBtn);
 
+        // Tag filter chips — collect all tags across topics, count, and render.
+        // Counts are based on the full topic set so chip widths don't jitter
+        // as the user toggles filters.
+        const tagRow = document.getElementById("tagFilterRow");
+        tagRow.innerHTML = "";
+        const tagCounts = new Map();
+        topics.forEach((t) => {
+          if (!Array.isArray(t.tags)) return;
+          t.tags.forEach((tg) => {
+            tagCounts.set(tg, (tagCounts.get(tg) || 0) + 1);
+          });
+        });
+        // Drop any active tags that no longer exist (e.g. last topic with that
+        // tag was deleted) so the filter doesn't silently hide everything.
+        for (const tg of [...activeTags]) {
+          if (!tagCounts.has(tg)) activeTags.delete(tg);
+        }
+        if (tagCounts.size) {
+          const sorted = [...tagCounts.entries()].sort(
+            (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
+          );
+          sorted.forEach(([tg, n]) => {
+            const chip = document.createElement("button");
+            chip.type = "button";
+            chip.className = "tchip" + (activeTags.has(tg) ? " active" : "");
+            chip.appendChild(document.createTextNode("#" + tg));
+            const cnt = document.createElement("span");
+            cnt.className = "tchip-cnt";
+            cnt.textContent = String(n);
+            chip.appendChild(cnt);
+            chip.onclick = () => toggleTagFilter(tg);
+            tagRow.appendChild(chip);
+          });
+          if (activeTags.size) {
+            const clr = document.createElement("button");
+            clr.type = "button";
+            clr.className = "tchip-clear";
+            clr.textContent = "× clear tags";
+            clr.onclick = () => clearTagFilters();
+            tagRow.appendChild(clr);
+          }
+        }
+
         // Filter topics
         let filtered =
           activeFilter === "ALL"
@@ -2381,6 +2602,13 @@
         if (searchQuery) {
           filtered = filtered.filter((t) =>
             t.name.toLowerCase().includes(searchQuery),
+          );
+        }
+        if (activeTags.size) {
+          filtered = filtered.filter(
+            (t) =>
+              Array.isArray(t.tags) &&
+              t.tags.some((tag) => activeTags.has(tag)),
           );
         }
 
