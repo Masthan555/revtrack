@@ -271,6 +271,67 @@
         align-items: center;
       }
 
+      /* ── Tag input (chip-style) inside the topic modal ── */
+      .tags-box {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        padding: 7px 9px;
+        border: 1.5px solid var(--border);
+        border-radius: var(--rsm);
+        background: var(--surface2);
+        cursor: text;
+        transition: border-color 0.15s, background 0.15s;
+        min-height: 42px;
+      }
+      .tags-box:focus-within {
+        border-color: var(--accent);
+        background: #fff;
+      }
+      [data-theme="dark"] .tags-box:focus-within { background: var(--surface); }
+      .tags-input {
+        flex: 1;
+        min-width: 120px;
+        border: none;
+        outline: none;
+        background: transparent;
+        color: var(--text);
+        font-family: "Plus Jakarta Sans", sans-serif;
+        font-size: 13px;
+        padding: 4px 2px;
+      }
+      .tag-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 11px;
+        padding: 3px 4px 3px 8px;
+        border-radius: 5px;
+        background: #fff7ed;
+        border: 1px solid #fed7aa;
+        color: #c2410c;
+        line-height: 1.2;
+      }
+      [data-theme="dark"] .tag-pill {
+        background: rgba(249, 115, 22, 0.18);
+        border-color: rgba(249, 115, 22, 0.5);
+        color: #fdba74;
+      }
+      .tag-pill-x {
+        border: none;
+        background: transparent;
+        color: inherit;
+        opacity: 0.55;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+        padding: 0 4px;
+        border-radius: 3px;
+      }
+      .tag-pill-x:hover { opacity: 1; background: rgba(0, 0, 0, 0.08); }
+
       /* ── Tag filter row ── */
       .tag-filter-row {
         display: flex;
@@ -1432,17 +1493,25 @@
         </div>
         <div class="field">
           <label>Tags (optional)</label>
-          <input
-            type="text"
-            id="topicTagsInp"
-            placeholder="comma-separated, e.g. leetcode, daily, hard"
-            autocomplete="off"
-            oninput="renderTagsHint()"
-          />
+          <div
+            id="topicTagsBox"
+            class="tags-box"
+            onclick="document.getElementById('topicTagsInp').focus()"
+          >
+            <input
+              type="text"
+              id="topicTagsInp"
+              class="tags-input"
+              placeholder="Type a tag and press Enter…"
+              autocomplete="off"
+              autocapitalize="none"
+              spellcheck="false"
+            />
+          </div>
           <div
             id="topicTagsHint"
             style="font-size: 11px; color: var(--text-light); margin-top: 4px; font-family: 'JetBrains Mono', monospace;"
-          ></div>
+          >Press Enter or comma to add. Backspace clears the last one.</div>
         </div>
         <div
           id="schedPreviewWrap"
@@ -1713,7 +1782,7 @@
           description: getDescContent() || "",
           intervals: document.getElementById("topicIntervalsInp").value || "",
           recurring: document.getElementById("topicRecurringInp").checked,
-          tags: document.getElementById("topicTagsInp").value || "",
+          tags: JSON.stringify(editingTags),
         };
       }
       function isTopicModalDirty() {
@@ -1726,7 +1795,8 @@
           (document.getElementById("topicIntervalsInp").value || "") !==
             s.intervals ||
           document.getElementById("topicRecurringInp").checked !== s.recurring ||
-          (document.getElementById("topicTagsInp").value || "") !== s.tags
+          JSON.stringify(editingTags) !== s.tags ||
+          (document.getElementById("topicTagsInp").value || "") !== ""
         );
       }
       function tryCloseTopicModal() {
@@ -1863,22 +1933,77 @@
         openModal("topicModal");
       }
 
-      // Parse the tags input (comma- or space-separated) into a normalized
-      // array: lowercase, trimmed, deduped, ≤16 entries, each ≤32 chars.
-      // Mirrors the server-side validation in api/topics.js.
-      function parseTagsInput(text) {
-        const raw = String(text || "")
-          .split(/[,\n]+/)
-          .map((s) => s.trim().toLowerCase())
-          .filter(Boolean);
-        const seen = new Set();
-        const out = [];
-        for (const t of raw) {
-          if (t.length > 32) continue;
-          if (!seen.has(t)) { seen.add(t); out.push(t); }
-          if (out.length >= 16) break;
-        }
-        return out;
+      // Live array of tags currently in the topic-modal chip box. Mutated
+      // by the input keydown handler; read by submitTopic / dirty-check.
+      let editingTags = [];
+
+      // Normalize a single user-typed token to the canonical tag form.
+      // Returns "" if the token would collapse to nothing.
+      function normalizeTagToken(s) {
+        return String(s || "").trim().toLowerCase();
+      }
+
+      // Re-render the chip pills inside #topicTagsBox to match `editingTags`.
+      // The <input> stays as the last child so focus/typing continues to work.
+      function renderTagChips() {
+        const box = document.getElementById("topicTagsBox");
+        if (!box) return;
+        const inp = document.getElementById("topicTagsInp");
+        // Wipe everything except the input.
+        box.querySelectorAll(".tag-pill").forEach((el) => el.remove());
+        editingTags.forEach((t, i) => {
+          const pill = document.createElement("span");
+          pill.className = "tag-pill";
+          pill.appendChild(document.createTextNode("#" + t));
+          const x = document.createElement("button");
+          x.type = "button";
+          x.className = "tag-pill-x";
+          x.textContent = "×";
+          x.title = "Remove";
+          x.onclick = (e) => {
+            e.stopPropagation();
+            editingTags.splice(i, 1);
+            renderTagChips();
+            inp.focus();
+          };
+          pill.appendChild(x);
+          box.insertBefore(pill, inp);
+        });
+      }
+
+      // Try to commit the current input value as a new tag chip. Silently
+      // skips empties / dupes / oversize tokens, and respects the 16-tag cap.
+      function commitTagFromInput() {
+        const inp = document.getElementById("topicTagsInp");
+        const t = normalizeTagToken(inp.value);
+        inp.value = "";
+        if (!t) return;
+        if (t.length > 32) return;
+        if (editingTags.length >= 16) return;
+        if (editingTags.includes(t)) return;
+        editingTags.push(t);
+        renderTagChips();
+      }
+
+      function setupTagsInput() {
+        const inp = document.getElementById("topicTagsInp");
+        if (!inp || inp._wired) return;
+        inp._wired = true;
+        inp.addEventListener("keydown", (e) => {
+          if (e.key === "Enter" || e.key === ",") {
+            e.preventDefault();
+            commitTagFromInput();
+          } else if (e.key === "Backspace" && inp.value === "" && editingTags.length) {
+            e.preventDefault();
+            editingTags.pop();
+            renderTagChips();
+          }
+        });
+        // Commit on blur so a half-typed tag isn't silently lost when the
+        // user clicks Save without pressing Enter first.
+        inp.addEventListener("blur", () => {
+          commitTagFromInput();
+        });
       }
 
       // Parse comma/space-separated text into an array of positive ints.
@@ -1893,18 +2018,6 @@
           out.push(n);
         }
         return out;
-      }
-
-      // Renders normalized-tag preview chips under the tag input so the user
-      // can see what will actually be saved (after lowercase/trim/dedupe).
-      function renderTagsHint() {
-        const hint = document.getElementById("topicTagsHint");
-        if (!hint) return;
-        const tagsInp = document.getElementById("topicTagsInp");
-        const tags = parseTagsInput(tagsInp.value);
-        hint.textContent = tags.length
-          ? `→ ${tags.join("  ·  ")}`
-          : "";
       }
 
       function renderSchedPreview() {
@@ -1952,7 +2065,8 @@
           setDescContent(editing.description || "");
           ivsInp.value = (topicIntervals(editing)).join(", ");
           recInp.checked = editing.recurring === true;
-          tagsInp.value = (Array.isArray(editing.tags) ? editing.tags : []).join(", ");
+          editingTags = Array.isArray(editing.tags) ? [...editing.tags] : [];
+          tagsInp.value = "";
           title.textContent = "Edit Topic";
           submit.textContent = "Save Changes";
         } else {
@@ -1961,11 +2075,13 @@
           setDescContent("");
           ivsInp.value = INTERVALS.join(", ");
           recInp.checked = false;
+          editingTags = [];
           tagsInp.value = "";
           title.textContent = "Add New Topic";
           submit.textContent = "+ Add Topic";
         }
-        renderTagsHint();
+        setupTagsInput();
+        renderTagChips();
         // Always reopen in Edit mode (not Preview).
         const pv = document.getElementById("topicDescPreview");
         const pvBtn = document.getElementById("mdPreviewBtn");
@@ -1982,9 +2098,8 @@
         const description = getDescContent();
         const rawIntervals = document.getElementById("topicIntervalsInp").value;
         const recurring = document.getElementById("topicRecurringInp").checked;
-        const tags = parseTagsInput(
-          document.getElementById("topicTagsInp").value,
-        );
+        commitTagFromInput();
+        const tags = [...editingTags];
         if (!name) return toast("⚠️", "Enter a topic name");
         const intervals = parseIntervalsInput(rawIntervals);
         if (!intervals)
