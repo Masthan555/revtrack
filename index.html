@@ -290,9 +290,11 @@
         background: #fff;
       }
       [data-theme="dark"] .tags-box:focus-within { background: var(--surface); }
-      .tags-input {
+      .tags-box .tags-input,
+      .field .tags-box input[type="text"].tags-input {
         flex: 1;
         min-width: 120px;
+        width: auto;
         border: none;
         outline: none;
         background: transparent;
@@ -300,6 +302,11 @@
         font-family: "Plus Jakarta Sans", sans-serif;
         font-size: 13px;
         padding: 4px 2px;
+        border-radius: 0;
+      }
+      .field .tags-box input[type="text"].tags-input:focus {
+        background: transparent;
+        border: none;
       }
       .tag-pill {
         display: inline-flex;
