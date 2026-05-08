@@ -1,7 +1,7 @@
 import webpush from 'web-push';
 import { sql, ensureSchema, handleError } from '../../lib/db.js';
 
-const DEFAULT_INTERVALS = [1, 3, 7, 14, 30, 90, 180, 365];
+const DEFAULT_INTERVALS = [1, 3, 7, 14, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360];
 
 function revOffsetDays(t, i) {
   const ivs = Array.isArray(t.intervals) && t.intervals.length > 0
