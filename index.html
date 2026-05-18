@@ -2877,7 +2877,8 @@
             return an < bn ? -1 : an > bn ? 1 : 0;
           });
 
-        document.getElementById("todayCnt").textContent = todayItems.length;
+        const todayPending = todayItems.filter((t) => !isTodayDone(t.id)).length;
+        document.getElementById("todayCnt").textContent = todayPending;
         const todayEl = document.getElementById("todayList");
         if (todayItems.length === 0) {
           if (searchQuery.trim()) {
