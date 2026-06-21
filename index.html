@@ -2236,7 +2236,7 @@
 
         if (editing) {
           sel.value = editing.subject;
-          sel.disabled = true;
+          sel.disabled = false;
           nameInp.value = editing.name;
           setDescContent(editing.description || "");
           ivsInp.value = (topicIntervals(editing)).join(", ");
@@ -2290,6 +2290,9 @@
             return;
           }
           const id = topic.id;
+          const subject =
+            document.getElementById("topicSubjSel").value || topic.subject;
+          topic.subject = subject;
           topic.name = name;
           topic.description = description;
           topic.intervals = intervals;
@@ -2302,6 +2305,7 @@
           toast("✓", "Saved");
           render();
           api("PATCH", "/api/topics?id=" + encodeURIComponent(id), {
+            subject,
             name,
             description,
             intervals,

@@ -65,11 +65,12 @@ export default async function handler(req, res) {
       if (!id) return res.status(400).json({ error: 'id required' });
       const body = req.body || {};
       const hasName = typeof body.name === 'string' && body.name.trim();
+      const hasSubject = typeof body.subject === 'string' && body.subject.trim();
       const hasDesc = typeof body.description === 'string';
       const hasIvs = 'intervals' in body;
       const hasRec = typeof body.recurring === 'boolean';
       const hasTags = 'tags' in body;
-      if (!hasName && !hasDesc && !hasIvs && !hasRec && !hasTags) {
+      if (!hasName && !hasSubject && !hasDesc && !hasIvs && !hasRec && !hasTags) {
         return res.status(400).json({ error: 'at least one editable field required' });
       }
       let newIvs = null;
@@ -90,6 +91,7 @@ export default async function handler(req, res) {
         }
       }
       const newName = hasName ? body.name.trim() : null;
+      const newSubject = hasSubject ? body.subject.trim() : null;
       const newDesc = hasDesc ? (body.description.trim() ? body.description : null) : null;
       const newRec  = hasRec  ? body.recurring : null;
       const ivsParam = hasIvs && newIvs !== null ? JSON.stringify(newIvs) : null;
@@ -97,6 +99,7 @@ export default async function handler(req, res) {
       const result = await sql`
         UPDATE topics
         SET name        = COALESCE(${newName}, name),
+            subject     = COALESCE(${newSubject}, subject),
             description = CASE WHEN ${hasDesc} THEN ${newDesc} ELSE description END,
             intervals   = CASE WHEN ${hasIvs}  THEN ${ivsParam}::jsonb ELSE intervals END,
             recurring   = CASE WHEN ${hasRec}  THEN ${newRec} ELSE recurring END,
